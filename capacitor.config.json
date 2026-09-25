@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.f0rgis.tank",
+  "appName": "TAN.K",
+  "webDir": "www",
+  "backgroundColor": "#000000",
+  "android": {
+    "backgroundColor": "#000000"
+  }
+}
