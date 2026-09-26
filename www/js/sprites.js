@@ -63,64 +63,69 @@ const Sprites = (() => {
   // Each has its own silhouette so types and upgrades read at a glance.
   function drawTankUp(g, kind, p, frame) {
     switch (kind) {
-      // ----- Player: grows with each star -----
-      case 'p0': // level 1: light tank, short gun
+      // Player upgrades. Each level changes the gun, not just the size.
+      case 'p0': // light: short single barrel
+        treads(g, p, 2, 4, 3, 11, frame); treads(g, p, 11, 4, 3, 11, frame);
+        hull(g, p, 5, 6, 6, 8);
+        turret(g, p, 6, 8, 4, 4);
+        barrel(g, p, 7, 3, 2, 5, false);
+        break;
+      case 'p1': // fast shells: one long gun, muzzle brake
         treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
         hull(g, p, 4, 6, 8, 9);
-        turret(g, p, 5, 8, 6, 5);
-        barrel(g, p, 7, 2, 2, 7, false);
+        turret(g, p, 5, 7, 6, 6);
+        barrel(g, p, 7, 0, 2, 8, true);
+        px(g, p.k, 6, 0); px(g, p.k, 9, 0);
         break;
-      case 'p1': // level 2: long gun with muzzle brake (fast shells)
+      case 'p2': // double shot: two separated barrels
         treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
         hull(g, p, 4, 5, 8, 10);
-        turret(g, p, 5, 7, 6, 6);
-        barrel(g, p, 7, 0, 2, 9, true);
+        turret(g, p, 4, 7, 8, 6);
+        barrel(g, p, 4, 0, 2, 8, false);
+        barrel(g, p, 10, 0, 2, 8, false);
+        px(g, p.d, 7, 9, 2, 2);
         break;
-      case 'p2': // level 3: twin guns (two shells at once)
-        treads(g, p, 1, 2, 3, 13, frame); treads(g, p, 12, 2, 3, 13, frame);
-        hull(g, p, 4, 5, 8, 10);
-        turret(g, p, 4, 6, 8, 7);
-        barrel(g, p, 5, 0, 2, 8, false); barrel(g, p, 9, 0, 2, 8, false);
-        break;
-      case 'p3': // level 4: heavy tank, armoured skirts, steel-breaking twin guns
-        treads(g, p, 0, 2, 4, 14, frame); treads(g, p, 12, 2, 4, 14, frame);
+      case 'p3': // steel breaker: wide hull, flared twin guns, skirts
+        treads(g, p, 0, 2, 3, 14, frame); treads(g, p, 13, 2, 3, 14, frame);
         hull(g, p, 3, 4, 10, 11);
-        px(g, p.d, 3, 7, 10, 1);
-        turret(g, p, 4, 6, 8, 8);
-        barrel(g, p, 5, 0, 2, 8, true); barrel(g, p, 9, 0, 2, 8, true);
-        rivets(g, p, [[4, 5], [11, 5], [4, 14], [11, 14]]);
+        px(g, p.d, 3, 8, 10, 1);
+        turret(g, p, 4, 6, 8, 7);
+        barrel(g, p, 4, 0, 2, 7, true);
+        barrel(g, p, 10, 0, 2, 7, true);
+        rivets(g, p, [[3, 5], [12, 5], [3, 13], [12, 13]]);
         break;
 
-      // ----- Enemies -----
-      case 'e0': // basic: compact, stubby gun
-        treads(g, p, 1, 2, 3, 13, frame); treads(g, p, 12, 2, 3, 13, frame);
-        hull(g, p, 4, 5, 8, 9);
-        turret(g, p, 5, 7, 6, 5);
-        barrel(g, p, 7, 1, 2, 7, false);
-        break;
-      case 'e1': // fast: slim, pointed nose, thin tracks, long thin gun
-        treads(g, p, 2, 4, 2, 11, frame); treads(g, p, 12, 4, 2, 11, frame);
-        hull(g, p, 4, 7, 8, 8);
-        hull(g, p, 5, 4, 6, 4);
-        px(g, p.d, 4, 12, 8, 1); px(g, p.d, 4, 14, 8, 1);
+      // Enemies. Shapes must differ with the palette ignored.
+      case 'e0': // basic: small box, stubby gun, does not fill the tile
+        treads(g, p, 3, 5, 2, 9, frame); treads(g, p, 11, 5, 2, 9, frame);
+        hull(g, p, 5, 7, 6, 6);
         turret(g, p, 6, 8, 4, 4);
-        barrel(g, p, 7, 0, 2, 9, false);
+        barrel(g, p, 7, 4, 2, 4, false);
         break;
-      case 'e2': // power: big dome turret, long gun with heavy muzzle
-        treads(g, p, 1, 4, 3, 12, frame); treads(g, p, 12, 4, 3, 12, frame);
-        hull(g, p, 3, 8, 10, 7);
-        turret(g, p, 4, 5, 8, 8);
-        px(g, p.l, 5, 6, 2, 1);
-        barrel(g, p, 7, 0, 2, 7, false);
-        px(g, p.l, 5, 0, 6, 2); px(g, p.d, 5, 1, 6, 1);
+      case 'e1': // fast: arrow hull, needle barrel, almost no body
+        treads(g, p, 4, 6, 1, 8, frame); treads(g, p, 11, 6, 1, 8, frame);
+        hull(g, p, 5, 8, 6, 6);
+        px(g, p.m, 6, 5, 4, 3); px(g, p.l, 7, 3, 2, 2); px(g, p.d, 6, 5, 4, 1);
+        barrel(g, p, 7, 0, 2, 4, false);
+        px(g, p.l, 7, 0, 2, 1);
         break;
-      case 'e3': // armor: massive, wide tracks, twin guns, riveted plates
+      case 'e2': // power: fat cannon, wide muzzle, low hull
+        treads(g, p, 1, 6, 3, 9, frame); treads(g, p, 12, 6, 3, 9, frame);
+        hull(g, p, 4, 9, 8, 6);
+        turret(g, p, 3, 6, 10, 5);
+        px(g, p.l, 4, 0, 8, 3);
+        px(g, p.m, 5, 3, 6, 3);
+        px(g, p.d, 4, 2, 8, 1);
+        px(g, p.k, 4, 0); px(g, p.k, 11, 0);
+        break;
+      case 'e3': // armor: fills the tile, twin guns, cheek plates
         treads(g, p, 0, 1, 4, 15, frame); treads(g, p, 12, 1, 4, 15, frame);
-        hull(g, p, 3, 3, 10, 13);
-        turret(g, p, 4, 5, 8, 9);
-        px(g, p.d, 4, 9, 8, 1);
-        barrel(g, p, 5, 0, 2, 6, false); barrel(g, p, 9, 0, 2, 6, false);
-        rivets(g, p, [[4, 4], [11, 4], [4, 14], [11, 14], [3, 9], [12, 9]]);
+        hull(g, p, 4, 3, 8, 12);
+        turret(g, p, 4, 5, 8, 8);
+        barrel(g, p, 4, 0, 2, 5, false);
+        barrel(g, p, 10, 0, 2, 5, false);
+        px(g, p.d, 4, 8, 8, 1);
+        rivets(g, p, [[4, 4], [11, 4], [4, 13], [11, 13], [5, 10], [10, 10]]);
         break;
     }
   }
