@@ -29,11 +29,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
+        with:
+          # v3 defaulted to the removed `tools` package and died on sdkmanager.
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - run: npm ci
       - run: npx cap add android
       - name: Generate launcher icons
