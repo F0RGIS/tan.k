@@ -57,87 +57,71 @@ const Sprites = (() => {
     }
   }
 
-  // kind: 'p0'..'p3' (player levels) or 'e0'..'e3' (enemy types)
+  function rivets(g, p, pts) { for (const [x, y] of pts) px(g, p.k, x, y, 1, 1); }
+
+  // kind: 'p0'..'p3' (player upgrade levels) or 'e0'..'e3' (enemy types).
+  // Each has its own silhouette so types and upgrades read at a glance.
   function drawTankUp(g, kind, p, frame) {
     switch (kind) {
-      case 'p0': {
-        treads(g, p, 1, 3, 3, 12, frame);
-        treads(g, p, 12, 3, 3, 12, frame);
+      // ----- Player: grows with each star -----
+      case 'p0': // level 1: light tank, short gun
+        treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
         hull(g, p, 4, 6, 8, 9);
         turret(g, p, 5, 8, 6, 5);
-        barrel(g, p, 7, 1, 2, 8, false);
+        barrel(g, p, 7, 2, 2, 7, false);
         break;
-      }
-      case 'p1': {
-        treads(g, p, 1, 3, 3, 12, frame);
-        treads(g, p, 12, 3, 3, 12, frame);
+      case 'p1': // level 2: long gun with muzzle brake (fast shells)
+        treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
         hull(g, p, 4, 5, 8, 10);
         turret(g, p, 5, 7, 6, 6);
-        barrel(g, p, 7, 0, 2, 8, true);
+        barrel(g, p, 7, 0, 2, 9, true);
         break;
-      }
-      case 'p2': {
-        treads(g, p, 1, 2, 3, 13, frame);
-        treads(g, p, 12, 2, 3, 13, frame);
+      case 'p2': // level 3: twin guns (two shells at once)
+        treads(g, p, 1, 2, 3, 13, frame); treads(g, p, 12, 2, 3, 13, frame);
         hull(g, p, 4, 5, 8, 10);
-        turret(g, p, 4, 7, 8, 6);
-        barrel(g, p, 7, 0, 2, 8, true);
-        px(g, p.l, 6, 0, 4, 1);
-        break;
-      }
-      case 'p3': {
-        treads(g, p, 1, 2, 3, 13, frame);
-        treads(g, p, 12, 2, 3, 13, frame);
-        hull(g, p, 3, 4, 10, 11);
         turret(g, p, 4, 6, 8, 7);
-        barrel(g, p, 7, 0, 2, 7, true);
-        px(g, p.l, 5, 0, 6, 1);
-        px(g, p.d, 4, 5, 1, 1);
-        px(g, p.d, 11, 5, 1, 1);
-        px(g, p.d, 4, 13, 1, 1);
-        px(g, p.d, 11, 13, 1, 1);
+        barrel(g, p, 5, 0, 2, 8, false); barrel(g, p, 9, 0, 2, 8, false);
         break;
-      }
-      case 'e0': {
-        treads(g, p, 1, 2, 3, 13, frame);
-        treads(g, p, 12, 2, 3, 13, frame);
+      case 'p3': // level 4: heavy tank, armoured skirts, steel-breaking twin guns
+        treads(g, p, 0, 2, 4, 14, frame); treads(g, p, 12, 2, 4, 14, frame);
+        hull(g, p, 3, 4, 10, 11);
+        px(g, p.d, 3, 7, 10, 1);
+        turret(g, p, 4, 6, 8, 8);
+        barrel(g, p, 5, 0, 2, 8, true); barrel(g, p, 9, 0, 2, 8, true);
+        rivets(g, p, [[4, 5], [11, 5], [4, 14], [11, 14]]);
+        break;
+
+      // ----- Enemies -----
+      case 'e0': // basic: compact, stubby gun
+        treads(g, p, 1, 2, 3, 13, frame); treads(g, p, 12, 2, 3, 13, frame);
         hull(g, p, 4, 5, 8, 9);
         turret(g, p, 5, 7, 6, 5);
-        barrel(g, p, 7, 0, 2, 8, false);
+        barrel(g, p, 7, 1, 2, 7, false);
         break;
-      }
-      case 'e1': {
-        treads(g, p, 2, 2, 2, 13, frame);
-        treads(g, p, 12, 2, 2, 13, frame);
-        hull(g, p, 4, 5, 8, 8);
-        turret(g, p, 6, 7, 4, 5);
+      case 'e1': // fast: slim, pointed nose, thin tracks, long thin gun
+        treads(g, p, 2, 4, 2, 11, frame); treads(g, p, 12, 4, 2, 11, frame);
+        hull(g, p, 4, 7, 8, 8);
+        hull(g, p, 5, 4, 6, 4);
+        px(g, p.d, 4, 12, 8, 1); px(g, p.d, 4, 14, 8, 1);
+        turret(g, p, 6, 8, 4, 4);
         barrel(g, p, 7, 0, 2, 9, false);
-        px(g, p.d, 4, 13, 8, 2);
-        px(g, p.m, 5, 13, 6, 1);
         break;
-      }
-      case 'e2': {
-        treads(g, p, 1, 3, 3, 12, frame);
-        treads(g, p, 12, 3, 3, 12, frame);
-        hull(g, p, 3, 6, 10, 9);
-        turret(g, p, 5, 6, 6, 7);
-        barrel(g, p, 7, 1, 2, 6, true);
-        px(g, p.l, 6, 0, 4, 2);
+      case 'e2': // power: big dome turret, long gun with heavy muzzle
+        treads(g, p, 1, 4, 3, 12, frame); treads(g, p, 12, 4, 3, 12, frame);
+        hull(g, p, 3, 8, 10, 7);
+        turret(g, p, 4, 5, 8, 8);
+        px(g, p.l, 5, 6, 2, 1);
+        barrel(g, p, 7, 0, 2, 7, false);
+        px(g, p.l, 5, 0, 6, 2); px(g, p.d, 5, 1, 6, 1);
         break;
-      }
-      case 'e3': {
-        treads(g, p, 0, 2, 4, 13, frame);
-        treads(g, p, 12, 2, 4, 13, frame);
-        hull(g, p, 3, 4, 10, 11);
-        px(g, p.d, 4, 5, 1, 1);
-        px(g, p.d, 11, 5, 1, 1);
-        px(g, p.d, 4, 13, 1, 1);
-        px(g, p.d, 11, 13, 1, 1);
-        turret(g, p, 5, 6, 6, 7);
-        px(g, p.l, 7, 8, 2, 2);
-        barrel(g, p, 7, 0, 2, 7, true);
+      case 'e3': // armor: massive, wide tracks, twin guns, riveted plates
+        treads(g, p, 0, 1, 4, 15, frame); treads(g, p, 12, 1, 4, 15, frame);
+        hull(g, p, 3, 3, 10, 13);
+        turret(g, p, 4, 5, 8, 9);
+        px(g, p.d, 4, 9, 8, 1);
+        barrel(g, p, 5, 0, 2, 6, false); barrel(g, p, 9, 0, 2, 6, false);
+        rivets(g, p, [[4, 4], [11, 4], [4, 14], [11, 14], [3, 9], [12, 9]]);
         break;
-      }
     }
   }
 
@@ -321,6 +305,24 @@ const Sprites = (() => {
       '..wwwwsswwww....',
       '...wwkwwkww.....',
       '....wwwwww......',
+      '................',
+      '................',
+    ],
+    gun: [ // instant max upgrade (as in Tank 1990)
+      '................',
+      '................',
+      '................',
+      '..wwwwwwwwwwww..',
+      '.wwssssssssssww.',
+      '.wwwwwwwwwwwwwk.',
+      '..kkkwwwwkkkkk..',
+      '.....ww.w.......',
+      '....www.w.......',
+      '....wwwww.......',
+      '...wwwww........',
+      '...wwww.........',
+      '..wwww..........',
+      '..www...........',
       '................',
       '................',
     ],

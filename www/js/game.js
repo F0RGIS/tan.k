@@ -20,6 +20,11 @@
   const ENEMY_SPAWN_X = [96, 192, 0];
   const PLAYER_SPAWN = [[64, 192], [128, 192]];
   const BONUS_INDEX = [3, 10, 17]; // 4th, 11th and 18th enemies carry power-ups
+  const BONUS_WEIGHT = { star: 4, helmet: 2, clock: 2, shovel: 2, grenade: 2, tank: 1, gun: 1 };
+  // Player upgrade levels (stars): what each one adds.
+  const ENEMY_NAME = ['BASIC', 'FAST', 'POWER', 'ARMOR'];
+  const ARMOR_PAL = ['silver', 'silver', 'teal', 'gold', 'green']; // by hit points left
+  const UPGRADE_NAME = ['', 'FAST SHELLS', 'DOUBLE SHOT', 'STEEL BREAKER'];
 
   // ---------- Canvas ----------
   const canvas = document.getElementById('game');
@@ -85,10 +90,13 @@
     for (let ty = 0; ty < 13; ty++) for (let tx = 0; tx < 13; tx++) {
       const ch = (rows[ty] || '')[tx] || '.';
       const t = { '#': T_BRICK, '@': T_STEEL, '~': T_WATER, '%': T_TREES, '-': T_ICE,
-        r: T_BRICK, l: T_BRICK, t: T_BRICK, b: T_BRICK, R: T_STEEL, L: T_STEEL, T: T_STEEL, B: T_STEEL }[ch];
+        r: T_BRICK, l: T_BRICK, t: T_BRICK, b: T_BRICK, R: T_STEEL, L: T_STEEL, T: T_STEEL, B: T_STEEL,
+        1: T_BRICK, 2: T_BRICK, 3: T_BRICK, 4: T_BRICK, 5: T_STEEL, 6: T_STEEL, 7: T_STEEL, 8: T_STEEL }[ch];
       if (!t) continue;
       const k = ch.toLowerCase();
-      if (k === 'r') fill(tx, ty, t, 2, 0, 4, 4);
+      const q = '12345678'.indexOf(ch) % 4; // quarter: 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right
+      if (q >= 0) fill(tx, ty, t, (q & 1) * 2, (q >> 1) * 2, (q & 1) * 2 + 2, (q >> 1) * 2 + 2);
+      else if (k === 'r') fill(tx, ty, t, 2, 0, 4, 4);
       else if (k === 'l') fill(tx, ty, t, 0, 0, 2, 4);
       else if (k === 't') fill(tx, ty, t, 0, 0, 4, 2);
       else if (k === 'b') fill(tx, ty, t, 0, 2, 4, 4);
@@ -228,10 +236,27 @@
     return blocked;
   }
 
+  // True if a 16x16 body at (x,y) would overlap impassable terrain.
+  function terrainHit(x, y) {
+    if (x < 0 || y < 0 || x > FS - 16 || y > FS - 16) return true;
+    for (let my = y >> 2; my <= (y + 15) >> 2; my++) for (let mx = x >> 2; mx <= (x + 15) >> 2; mx++) {
+      const v = cell(mx, my);
+      if (v === T_BRICK || v === T_STEEL || v === T_WATER || v === T_BASE) return true;
+    }
+    return false;
+  }
+
+  // Turning 90 degrees snaps the tank onto the 8px lane grid (like the NES), but
+  // only onto a lane that is free: snapping blindly pushed tanks into walls.
   function turnTank(t, d) {
     if (d === t.dir) return;
     if ((d & 1) !== (t.dir & 1)) {
-      if (d & 1) t.y = Math.round(t.y / 8) * 8; else t.x = Math.round(t.x / 8) * 8;
+      const v = d & 1 ? t.y : t.x;
+      const near = Math.round(v / 8) * 8, far = near + (v >= near ? 8 : -8);
+      for (const c of v === near ? [near] : [near, far]) {
+        if (Math.abs(c - v) > 4) continue;
+        if (!(d & 1 ? terrainHit(t.x, c) : terrainHit(c, t.y))) { if (d & 1) t.y = c; else t.x = c; break; }
+      }
       t.sub = 0;
     }
     t.dir = d;
@@ -362,7 +387,8 @@
       y = 8 * Math.floor(Math.random() * 25);
       tries++;
     } while (tries < 50 && (overlap(x, y, 16, 16, 80, 176, 48, 32) || blockedArea(x, y)));
-    bonus = { x, y, type: types[Math.floor(Math.random() * types.length)], t: 0 };
+    const pool = types.flatMap(k => Array(BONUS_WEIGHT[k] || 1).fill(k));
+    bonus = { x, y, type: pool[Math.floor(Math.random() * pool.length)], t: 0 };
     Sfx.play('bonusAppear');
   }
   function blockedArea(x, y) {
@@ -379,7 +405,12 @@
     addScore(p, 500);
     popups.push({ x: t.x + 8, y: t.y + 5, text: '500', t: 0, delay: 0 });
     switch (type) {
-      case 'star': p.level = Math.min(3, p.level + 1); break;
+      case 'star': case 'gun': {
+        const before = p.level;
+        p.level = type === 'gun' ? 3 : Math.min(3, p.level + 1);
+        if (p.level > before) popups.push({ x: t.x + 8, y: t.y - 6, text: UPGRADE_NAME[p.level], t: 0, delay: 20, color: COL.orange });
+        break;
+      }
       case 'tank': p.lives++; Sfx.play('life'); return;
       case 'helmet': t.shield = 600; break;
       case 'shovel': shovelT = 1200; setFortress(T_STEEL); break;
@@ -578,10 +609,17 @@
     if (t.player) { kind = 'p' + t.player.level; pal = t.player.idx ? 'green' : 'yellow'; }
     else {
       kind = 'e' + t.type;
-      pal = t.type === 3 ? ['silver', 'silver', 'teal', 'gold', 'green'][t.hp] : 'silver';
+      pal = 'silver';
+      if (t.type === 3 && t.hp > 1) pal = (frame >> 2) & 1 ? ARMOR_PAL[t.hp] : 'silver';
       if (t.bonus && (frame >> 3) & 1) pal = 'red';
     }
     return Sprites.tank(kind, pal, t.dir, (t.anim >> 2) & 1);
+  }
+
+  function drawStar(x, y, c) { // 5x5 upgrade star
+    ctx.fillStyle = c;
+    ctx.fillRect(x + 2, y, 1, 1); ctx.fillRect(x, y + 1, 5, 2); ctx.fillRect(x + 1, y + 3, 3, 1);
+    ctx.fillRect(x, y + 4, 2, 1); ctx.fillRect(x + 3, y + 4, 2, 1);
   }
 
   function drawSidebar() {
@@ -594,10 +632,11 @@
       ctx.fillRect(x + 1, y + 2, 5, 4); ctx.fillRect(x + 3, y, 1, 3);
     }
     players.forEach((p, i) => {
-      const y = 120 + i * 24;
+      const y = 108 + i * 30;
       text(i ? 'IIP' : 'IP', 233, y, COL.black);
       ctx.fillStyle = COL.black; ctx.fillRect(233, y + 9, 1, 6); ctx.fillRect(239, y + 9, 1, 6); ctx.fillRect(234, y + 10, 5, 4); ctx.fillRect(236, y + 8, 1, 3);
       text(String(p.lives), 243, y + 9, COL.black);
+      for (let s = 0; s < 3; s++) drawStar(233 + s * 7, y + 18, s < p.level ? '#fcfc54' : '#5c5c5c');
     });
     ctx.drawImage(Sprites.flag(), 232, 170);
     text(String(stage), 248, 188, COL.black, 1, 'right');
@@ -637,7 +676,12 @@
       const img = Sprites.explosion(e.size, e.size === 16 ? Math.min(2, f) : f);
       ctx.drawImage(img, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2));
     }
-    for (const p of popups) if (p.t >= p.delay) text(p.text, FX + p.x, FY + p.y, COL.white, 1, 'center');
+    for (const p of popups) {
+      if (p.t < p.delay) continue;
+      const w = Font.width(p.text) / 2;
+      const x = Math.max(w, Math.min(FS - w, p.x));
+      text(p.text, FX + x, FY + Math.max(0, p.y), p.color || COL.white, 1, 'center');
+    }
 
     if (paused && (frame >> 4) & 1) text('PAUSE', FX + 104, FY + 100, COL.red, 1, 'center');
     if (gameOverT >= 0) {
@@ -663,10 +707,18 @@
     const h = Math.round(Math.min(1, modeT / 20) * (H / 2));
     ctx.fillStyle = COL.bg; ctx.fillRect(0, 0, W, h); ctx.fillRect(0, H - h, W, h);
     if (modeT >= 20) {
-      text('STAGE ' + stage, W / 2, H / 2 - 4, COL.black, 1, 'center');
+      text('STAGE ' + stage, W / 2, H / 2 - 48, COL.black, 1, 'center');
+      const counts = [0, 0, 0, 0];
+      for (const e of Levels.enemies(stage)) counts[e]++;
+      ENEMY_NAME.forEach((name, i) => {
+        const cx = 44 + i * 56;
+        ctx.drawImage(Sprites.tank('e' + i, i === 3 ? 'green' : 'silver', 0, 0), cx - 16, H / 2 - 26, 32, 32);
+        text('X' + counts[i], cx, H / 2 + 10, COL.black, 1, 'center');
+        text(name, cx, H / 2 + 20, COL.black, 1, 'center');
+      });
       if (stage === 1 && players.every(p => p.score === 0) && (frame >> 5) & 1) {
         const touch = Input.source === 'touch';
-        text(touch ? 'D-PAD: CHOOSE  FIRE: START' : 'ARROWS: CHOOSE  FIRE: START', W / 2, H / 2 + 24, COL.black, 1, 'center');
+        text(touch ? 'D-PAD: CHOOSE  FIRE: START' : 'ARROWS: CHOOSE  FIRE: START', W / 2, H / 2 + 44, COL.black, 1, 'center');
       }
     }
   }
@@ -783,6 +835,6 @@
 
   // Expose a tiny debug hook for automated tests.
   window.__tank = { get mode() { return mode; }, get stage() { return stage; }, get tanks() { return tanks; },
-    get players() { return players; }, get queue() { return queue; }, get baseDead() { return baseDead; },
-    newGame, startStage, placeBonus, sim(n) { for (let i = 0; i < n; i++) update(); } };
+    get players() { return players; }, get queue() { return queue; }, get baseDead() { return baseDead; }, get bonus() { return bonus; },
+    newGame, startStage, placeBonus, cell, setStage(n) { stage = n; }, sim(n) { for (let i = 0; i < n; i++) update(); } };
 })();

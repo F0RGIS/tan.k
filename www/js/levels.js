@@ -3,6 +3,8 @@
 //  .  empty      #  brick     @  steel     ~  water     %  trees     -  ice
 //  r/l/t/b  right/left/top/bottom half brick
 //  R/L/T/B  right/left/top/bottom half steel
+//  1/2/3/4  top-left/top-right/bottom-left/bottom-right quarter brick
+//  5/6/7/8  top-left/top-right/bottom-left/bottom-right quarter steel
 // Keep tiles (0,0) (6,0) (12,0) free for enemy spawns, (4,12) (8,12) for players.
 // The eagle and its brick wall are placed automatically at the bottom centre.
 const Levels = (() => {
@@ -15,9 +17,9 @@ const Levels = (() => {
       '.#.#.#.#.#.#.',
       '.#.#.....#.#.',
       '.....#.#.....',
-      'b.##.....##.b',
+      'B.##.....##.B',
       '.....#.#.....',
-      '.#.#.###.#.#.',
+      '.#.#.#1#.#.#.',
       '.#.#.#.#.#.#.',
       '.#.#.....#.#.',
       '.#.#.....#.#.',
@@ -203,12 +205,12 @@ const Levels = (() => {
   // Procedural stage for anything past the hand-made ones (mirror symmetric).
   function generate(n) {
     const r = rng(n * 7919 + 17);
-    const pool = '..........####@~%-rlbt';
+    const pool = '..........####@~%-rlbt1234';
     const rows = [];
     for (let y = 0; y < 13; y++) {
       const half = [];
       for (let x = 0; x < 7; x++) half.push(pool[Math.floor(r() * pool.length)]);
-      const mirror = half.slice(0, 6).reverse().map(c => ({ r: 'l', l: 'r' }[c] || c));
+      const mirror = half.slice(0, 6).reverse().map(c => ({ r: 'l', l: 'r', 1: '2', 2: '1', 3: '4', 4: '3' }[c] || c));
       rows.push((half.join('') + mirror.join('')).split(''));
     }
     // Keep spawn points and fortress surroundings clear, and a clear row for movement.

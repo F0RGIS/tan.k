@@ -11,13 +11,28 @@ code.
 
 ## Features
 
-- NES-style 256×224 pixel playfield: brick, steel, water, trees and ice
-- Bricks break in 4-pixel chunks, like the original
-- 4 enemy types: basic, fast, power (fast bullets) and armored (4 hits)
-- Red flashing tanks drop power-ups: **star** (upgrade), **grenade**
-  (destroy all enemies), **helmet** (shield), **shovel** (steel fortress),
-  **clock** (freeze enemies) and **tank** (extra life)
-- 4 player upgrade levels, up to twin shots that break steel
+- NES-style 256×224 pixel playfield
+- Walls and terrain: **brick** (breaks in 4-pixel chunks), **steel** (only a
+  fully upgraded tank can break it), **water** (blocks tanks, not bullets),
+  **trees** (hide tanks) and **ice** (tanks slide). Brick and steel also come
+  as half and quarter blocks.
+- 4 enemy types, each with its own look (the stage screen shows each
+  stage's lineup):
+  - **Basic**: slow
+  - **Fast**: moves quickly
+  - **Power**: fires fast shells
+  - **Armor**: takes 4 hits and flashes green → gold → teal as it's damaged
+- Red flashing tanks drop power-ups: **star** (upgrade), **gun** (instant max
+  upgrade), **grenade** (destroy all enemies), **helmet** (shield),
+  **shovel** (steel fortress), **clock** (freeze enemies) and **tank**
+  (extra life)
+- Player upgrades: each star changes the tank's look, and the sidebar
+  shows how many you have.
+  1. Fast shells
+  2. Double shot
+  3. Steel breaker (heavy tank)
+
+  Losing a life resets your upgrades.
 - 12 hand-made stages, then endless generated stages. You can pick the
   starting stage on the stage screen.
 - 1 or 2 players (same keyboard, or gamepads)
@@ -96,7 +111,8 @@ tools/make-icons.js  regenerates the app icons (needs Playwright)
 Stages in `www/js/levels.js` are 13×13 text grids:
 `#` brick, `@` steel, `~` water, `%` trees, `-` ice, `.` empty.
 `r` `l` `t` `b` make half bricks, and `R` `L` `T` `B` make half steel
-blocks. The eagle and its wall are added automatically.
+blocks. `1`–`4` are quarter bricks and `5`–`8` quarter steel blocks, in the
+order top-left, top-right, bottom-left, bottom-right. The eagle and its wall are added automatically.
 
 ---
 
