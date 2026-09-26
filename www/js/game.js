@@ -129,6 +129,7 @@
   let stage = 1;
   let players = [];
   let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [];
+  let shakeT = 0, shakeMag = 0;
   let queue = [], enemySpawned = 0, spawnTimer = 0, spawnIdx = 0;
   let bonus = null;
   let freezeT = 0, shovelT = 0;
@@ -164,6 +165,7 @@
     enemySpawned = 0; spawnTimer = 0; spawnIdx = 0;
     bonus = null; freezeT = 0; shovelT = 0;
     baseDead = false; gameOverT = -1; clearT = -1; paused = false;
+    shakeT = 0; shakeMag = 0;
     for (const p of players) {
       p.kills = [0, 0, 0, 0];
       p.tank = null;
@@ -267,6 +269,17 @@
   function onIce(t) { return cell((t.x + 8) >> 2, (t.y + 8) >> 2) === T_ICE; }
 
 
+
+  function addShake(frames, mag) {
+    if (frames > shakeT) shakeT = frames;
+    if (mag > shakeMag) shakeMag = mag;
+  }
+  function shakeOffset() {
+    const m = shakeMag;
+    const seq = [[m, 0], [-m, 0], [0, m], [0, -m]];
+    return seq[frame % 4];
+  }
+
   const PARTICLE_CAP = 96;
   const PARTICLE_KINDS = {
     brick: { n: 7, colors: ['#d86c28', '#9c4a00', '#6c6c6c'], speed: 1.3, life: 16 },
@@ -326,14 +339,14 @@
     }
     if (b.owner.player) Sfx.play(hitBrick ? 'brick' : hitSteel ? 'steel' : 'brick');
     if (hitBrick) burst(b.x, b.y, 'brick');
-    else if (hitSteel) burst(b.x, b.y, 'steel');
+    else if (hitSteel) { burst(b.x, b.y, 'steel'); addShake(4, 1); }
   }
 
   function bulletStep(b) {
     b.x += DX[b.dir]; b.y += DY[b.dir];
     const x0 = b.x - 2, y0 = b.y - 2;
     if (x0 < 0 || y0 < 0 || x0 + 4 > FS || y0 + 4 > FS) {
-      if (b.owner.player) Sfx.play('steel');
+      if (b.owner.player) { Sfx.play('steel'); addShake(3, 1); }
       killBullet(b, true); return;
     }
     let solid = false, base = false;
@@ -366,6 +379,7 @@
   function bigBoom(t) {
     effects.push({ x: t.x + 8, y: t.y + 8, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 4, t: 0 });
     burst(t.x + 8, t.y + 8, 'boom');
+    addShake(t.player ? 12 : 8, t.player ? 2 : 1);
   }
 
   function addScore(p, pts) {
@@ -376,7 +390,7 @@
   function hitEnemy(t, p) {
     if (t.bonus) { t.bonus = false; placeBonus(); }
     t.hp--;
-    if (t.hp > 0) { Sfx.play('hitArmor'); burst(t.x + 8, t.y + 8, 'armor'); return; }
+    if (t.hp > 0) { Sfx.play('hitArmor'); burst(t.x + 8, t.y + 8, 'armor'); addShake(5, 1); return; }
     t.dead = true;
     bigBoom(t);
     Sfx.play('explode');
@@ -404,6 +418,7 @@
     baseDead = true;
     effects.push({ x: 104, y: 200, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 5, t: 0 });
     burst(104, 200, 'boom');
+    addShake(18, 3);
     Sfx.play('bigExplode');
     if (gameOverT < 0) gameOverT = 0;
   }
@@ -509,6 +524,7 @@
     if (Input.pressed('pause') || (Input.pressed('blur') && !paused)) {
       if (gameOverT < 0) { paused = Input.pressed('blur') ? true : !paused; Sfx.play('pause'); }
     }
+    if (shakeT > 0 && --shakeT === 0) shakeMag = 0;
     if (paused) { Sfx.engine(0); return; }
 
     // Enemy spawning
@@ -818,7 +834,14 @@
   }
 
   function render() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
+    if (mode === 'play' && shakeT > 0) {
+      ctx.fillStyle = COL.bg;
+      ctx.fillRect(0, 0, W, H);
+      const [ox, oy] = shakeOffset();
+      ctx.setTransform(1, 0, 0, 1, ox, oy);
+    }
     switch (mode) {
       case 'title': renderTitle(); break;
       case 'intro': renderIntro(); break;
