@@ -617,12 +617,13 @@
 
     for (const s of spawns) {
       const f = [0, 1, 2, 3, 2, 1][(s.t >> 2) % 6];
-      ctx.drawImage(Sprites.spawnStar(f), FX + s.x, FY + s.y);
+      ctx.drawImage(Sprites.spawnStar(f), FX + (s.x | 0), FY + (s.y | 0));
     }
     for (const t of tanks) {
       if (t.player && t.frozen > 0 && (frame >> 3) & 1) continue;
-      ctx.drawImage(tankImage(t), FX + t.x, FY + t.y);
-      if (t.shield > 0) ctx.drawImage(Sprites.shield((frame >> 1) & 1), FX + t.x, FY + t.y);
+      // Nearest-neighbor drawImage drops the sprite when dest x/y are fractional.
+      ctx.drawImage(tankImage(t), FX + Math.round(t.x), FY + Math.round(t.y));
+      if (t.shield > 0) ctx.drawImage(Sprites.shield((frame >> 1) & 1), FX + Math.round(t.x), FY + Math.round(t.y));
     }
     ctx.fillStyle = COL.white;
     for (const b of bullets) {
@@ -630,11 +631,11 @@
       ctx.fillStyle = COL.white; ctx.fillRect(FX + b.x - 1, FY + b.y - 1, 2, 2);
     }
     ctx.drawImage(treesCv, FX, FY);
-    if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) ctx.drawImage(Sprites.bonusIcon(bonus.type), FX + bonus.x, FY + bonus.y);
+    if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) ctx.drawImage(Sprites.bonusIcon(bonus.type), FX + Math.round(bonus.x), FY + Math.round(bonus.y));
     for (const e of effects) {
       const f = e.seq[Math.floor(e.t / e.rate)];
       const img = Sprites.explosion(e.size, e.size === 16 ? Math.min(2, f) : f);
-      ctx.drawImage(img, FX + e.x - e.size / 2, FY + e.y - e.size / 2);
+      ctx.drawImage(img, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2));
     }
     for (const p of popups) if (p.t >= p.delay) text(p.text, FX + p.x, FY + p.y, COL.white, 1, 'center');
 
