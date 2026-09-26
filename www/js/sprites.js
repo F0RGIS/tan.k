@@ -1,241 +1,257 @@
 'use strict';
-// Improved procedural pixel-art sprites for TAN.K
-// Cleaner silhouettes, NES Battle City–faithful proportions, sharper 3-tone shading.
+// NES-style sprites for TAN.K. Shapes follow the Battle City sheets
+// (basic / long gun / wide muzzle / heavy, and fast / power / armor)
+// but are drawn here. Pixels are stamped with fillRect — never drawImage —
+// because several browsers drop canvas-to-canvas draws when smoothing is off.
 const Sprites = (() => {
-  const cache = new Map();
-  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
-
   const PAL = {
-    yellow: { l: '#fcfc54', m: '#e8b800', d: '#8c5400', k: '#3c2400' },
-    green:  { l: '#b8fcb8', m: '#00b800', d: '#005800', k: '#002800' },
-    silver: { l: '#fcfcfc', m: '#b0b0b0', d: '#585858', k: '#202020' },
-    red:    { l: '#fcb8a0', m: '#e02800', d: '#780800', k: '#300000' },
-    gold:   { l: '#fcf0a0', m: '#d89800', d: '#684000', k: '#281800' },
-    teal:   { l: '#a8fcfc', m: '#00a0a8', d: '#004848', k: '#001818' },
+    yellow: { L: '#ece78c', M: '#e89c20', D: '#6b6b00', A: '#e89c20', B: '#6b6b00' },
+    green:  { L: '#b4f6ce', M: '#008c30', D: '#005200', A: '#008c30', B: '#005200' },
+    silver: { L: '#fcfcfc', M: '#b4b4b4', D: '#5a5a5a', A: '#b4b4b4', B: '#5a5a5a' },
+    red:    { L: '#fcb0b0', M: '#e02828', D: '#780818', A: '#e02828', B: '#780818' },
+    gold:   { L: '#fce898', M: '#d89800', D: '#684000', A: '#d89800', B: '#684000' },
+    teal:   { L: '#b0fcfc', M: '#00a0a8', D: '#004848', A: '#00a0a8', B: '#004848' },
   };
 
-  function px(g, c, x, y, w = 1, h = 1) {
-    g.fillStyle = c;
-    g.fillRect(x, y, w, h);
-  }
-
-  function treads(g, p, x, y, w, h, frame) {
-    px(g, p.k, x, y, w, h);
-    px(g, p.d, x, y, w, 1);
-    px(g, p.d, x, y + h - 1, w, 1);
-    const off = frame & 1;
-    for (let yy = y + 1 + off; yy < y + h - 1; yy += 2) px(g, p.m, x, yy, w, 1);
-    for (let yy = y + 2 - off; yy < y + h - 1; yy += 2) px(g, p.d, x, yy, w, 1);
-    px(g, p.l, x, y + 1, 1, h - 2);
-    px(g, p.k, x + w - 1, y + 1, 1, h - 2);
-  }
-
-  function hull(g, p, x, y, w, h) {
-    px(g, p.m, x, y, w, h);
-    px(g, p.l, x, y, w, 1);
-    px(g, p.l, x, y, 1, h);
-    px(g, p.d, x, y + h - 1, w, 1);
-    px(g, p.d, x + w - 1, y, 1, h);
-    px(g, p.k, x + w - 1, y + h - 1, 1, 1);
-  }
-
-  function turret(g, p, x, y, w, h) {
-    hull(g, p, x, y, w, h);
-    const cx = x + ((w / 2) | 0) - 1;
-    const cy = y + ((h / 2) | 0) - 1;
-    px(g, p.d, cx, cy, 2, 2);
-    px(g, p.l, cx, cy, 1, 1);
-  }
-
-  function barrel(g, p, x, y, w, h, flared) {
-    px(g, p.l, x, y, w, h);
-    px(g, p.m, x + w - 1, y, 1, h);
-    px(g, p.d, x, y + h - 1, w, 1);
-    if (flared) {
-      px(g, p.l, x - 1, y, w + 2, 2);
-      px(g, p.m, x + w, y, 1, 2);
-    }
-  }
-
-  function rivets(g, p, pts) { for (const [x, y] of pts) px(g, p.k, x, y, 1, 1); }
-
-  // kind: 'p0'..'p3' (player upgrade levels) or 'e0'..'e3' (enemy types).
-  // Each has its own silhouette so types and upgrades read at a glance.
-  function drawTankUp(g, kind, p, frame) {
-    switch (kind) {
-      // Player upgrades. Each level changes the gun, not just the size.
-      case 'p0': // light: short single barrel
-        treads(g, p, 2, 4, 3, 11, frame); treads(g, p, 11, 4, 3, 11, frame);
-        hull(g, p, 5, 6, 6, 8);
-        turret(g, p, 6, 8, 4, 4);
-        barrel(g, p, 7, 3, 2, 5, false);
-        break;
-      case 'p1': // fast shells: one long gun, muzzle brake
-        treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
-        hull(g, p, 4, 6, 8, 9);
-        turret(g, p, 5, 7, 6, 6);
-        barrel(g, p, 7, 0, 2, 8, true);
-        px(g, p.k, 6, 0); px(g, p.k, 9, 0);
-        break;
-      case 'p2': // double shot: two separated barrels
-        treads(g, p, 1, 3, 3, 12, frame); treads(g, p, 12, 3, 3, 12, frame);
-        hull(g, p, 4, 5, 8, 10);
-        turret(g, p, 4, 7, 8, 6);
-        barrel(g, p, 4, 0, 2, 8, false);
-        barrel(g, p, 10, 0, 2, 8, false);
-        px(g, p.d, 7, 9, 2, 2);
-        break;
-      case 'p3': // steel breaker: wide hull, flared twin guns, skirts
-        treads(g, p, 0, 2, 3, 14, frame); treads(g, p, 13, 2, 3, 14, frame);
-        hull(g, p, 3, 4, 10, 11);
-        px(g, p.d, 3, 8, 10, 1);
-        turret(g, p, 4, 6, 8, 7);
-        barrel(g, p, 4, 0, 2, 7, true);
-        barrel(g, p, 10, 0, 2, 7, true);
-        rivets(g, p, [[3, 5], [12, 5], [3, 13], [12, 13]]);
-        break;
-
-      // Enemies. Shapes must differ with the palette ignored.
-      case 'e0': // basic: small box, stubby gun, does not fill the tile
-        treads(g, p, 3, 5, 2, 9, frame); treads(g, p, 11, 5, 2, 9, frame);
-        hull(g, p, 5, 7, 6, 6);
-        turret(g, p, 6, 8, 4, 4);
-        barrel(g, p, 7, 4, 2, 4, false);
-        break;
-      case 'e1': // fast: arrow hull, needle barrel, almost no body
-        treads(g, p, 4, 6, 1, 8, frame); treads(g, p, 11, 6, 1, 8, frame);
-        hull(g, p, 5, 8, 6, 6);
-        px(g, p.m, 6, 5, 4, 3); px(g, p.l, 7, 3, 2, 2); px(g, p.d, 6, 5, 4, 1);
-        barrel(g, p, 7, 0, 2, 4, false);
-        px(g, p.l, 7, 0, 2, 1);
-        break;
-      case 'e2': // power: fat cannon, wide muzzle, low hull
-        treads(g, p, 1, 6, 3, 9, frame); treads(g, p, 12, 6, 3, 9, frame);
-        hull(g, p, 4, 9, 8, 6);
-        turret(g, p, 3, 6, 10, 5);
-        px(g, p.l, 4, 0, 8, 3);
-        px(g, p.m, 5, 3, 6, 3);
-        px(g, p.d, 4, 2, 8, 1);
-        px(g, p.k, 4, 0); px(g, p.k, 11, 0);
-        break;
-      case 'e3': // armor: fills the tile, twin guns, cheek plates
-        treads(g, p, 0, 1, 4, 15, frame); treads(g, p, 12, 1, 4, 15, frame);
-        hull(g, p, 4, 3, 8, 12);
-        turret(g, p, 4, 5, 8, 8);
-        barrel(g, p, 4, 0, 2, 5, false);
-        barrel(g, p, 10, 0, 2, 5, false);
-        px(g, p.d, 4, 8, 8, 1);
-        rivets(g, p, [[4, 4], [11, 4], [4, 13], [11, 13], [5, 10], [10, 10]]);
-        break;
-    }
-  }
-
-  // Integer rotate. Canvas rotate + imageSmoothingEnabled=false drops pixels
-  // (and whole sprites) on several browsers / Android WebView.
-  function rot16(src, dir) {
-    const c = mk(16, 16);
-    const g = c.getContext('2d');
-    if (!dir) { g.drawImage(src, 0, 0); return c; }
-    const S = src.getContext('2d').getImageData(0, 0, 16, 16).data;
-    const dst = g.createImageData(16, 16);
-    const D = dst.data;
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      let sx, sy;
-      if (dir === 1) { sx = y; sy = 15 - x; }
-      else if (dir === 2) { sx = 15 - x; sy = 15 - y; }
-      else { sx = 15 - y; sy = x; }
-      const si = (sy * 16 + sx) * 4, di = (y * 16 + x) * 4;
-      D[di] = S[si]; D[di + 1] = S[si + 1]; D[di + 2] = S[si + 2]; D[di + 3] = S[si + 3];
-    }
-    g.putImageData(dst, 0, 0);
-    return c;
-  }
-
-  function tank(kind, palName, dir, frame) {
-    const key = `t:${kind}:${palName}:${dir}:${frame}`;
-    let c = cache.get(key);
-    if (c) return c;
-    const up = mk(16, 16);
-    const p = PAL[palName] || PAL.silver;
-    drawTankUp(up.getContext('2d'), kind, p, frame & 1);
-    c = rot16(up, dir & 3);
-    cache.set(key, c);
-    return c;
-  }
-
-  const COLORS = {
-    w: '#fcfcfc', g: '#a8a8a8', k: '#303030', r: '#e02800', y: '#f8d800',
-    b: '#3c78fc', o: '#fc9838', n: '#503000', G: '#28a028', K: '#000000',
-    s: '#d8d8d8', d: '#686868',
+  // A/B are tread links; they swap each animation frame.
+  const TANKS = {
+    p0: [ // short gun, open tracks
+      '................',
+      '.......MM.......',
+      '.......LL.......',
+      '.AA....MM....BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.MMLLMMLL.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MMDDDDMM.AA.',
+      '.BB.MMMMMMMM.DD.',
+      '.AA.MMDDDDMM.BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.DDDDDDDD.DD.',
+      '.AA..........BB.',
+      '.DD..........AA.',
+      '................',
+      '................',
+    ],
+    p1: [ // long barrel
+      '.......LL.......',
+      '.......LL.......',
+      '.......MM.......',
+      '.AA....MM....BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.MMLLMMLL.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MMDDDDMM.AA.',
+      '.BB.MMMMMMMM.DD.',
+      '.AA.MMDDDDMM.BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.DDDDDDDD.DD.',
+      '.AA..........BB.',
+      '.DD..........AA.',
+      '.BB..........DD.',
+      '................',
+    ],
+    p2: [ // wide muzzle, twin-shot
+      '.....LLLLLL.....',
+      '.....MMMMMM.....',
+      '......DDDD......',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.MMLLMMLL.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MMDDDDMM.AA.',
+      '.BB.MMMMMMMM.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.DDDDDDDD.AA.',
+      '.BB..........DD.',
+      '.AA..........BB.',
+      '.DD..........AA.',
+      '................',
+      '................',
+    ],
+    p3: [ // heavy, steel-breaker
+      '....LLLLLLLL....',
+      '....MMMMMMMM....',
+      '.AA.DDDDDDDD.BB.',
+      '.DDMMMMMMMMMMDD.',
+      '.AAMMMMLLMMLMAA.',
+      '.BBMMMMMMMMMMDD.',
+      '.AAMMMM.D.MMMBB.',
+      '.DDMMMMMMMMMMAA.',
+      '.BBMMMMMMMMMMDD.',
+      '.AADDDDDDDDDDBB.',
+      '.DDMMMMMMMMMMAA.',
+      '.BB..........DD.',
+      '.AA..........BB.',
+      '.DD..........AA.',
+      '................',
+      '................',
+    ],
+    e0: [ // basic: compact, stubby gun
+      '................',
+      '.......M........',
+      '.......L........',
+      '.AA...MMM....BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.MMLLMMLL.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MMDDDDMM.AA.',
+      '.BB.MMMMMMMM.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.DDDDDDDD.AA.',
+      '.BB..........DD.',
+      '.AA..........BB.',
+      '................',
+      '................',
+      '................',
+    ],
+    e1: [ // fast: pinched waist, needle gun
+      '................',
+      '.......LL.......',
+      '.......MM.......',
+      '.A.....MM.....B.',
+      '.D..MMMMMMMM..A.',
+      '.A.MM......MM.B.',
+      '.D.M.MMMMMM.M.A.',
+      '.A.MM.DDDD.MM.B.',
+      '.D.M.MMMMMM.M.A.',
+      '.A.MM......MM.B.',
+      '.D..MMMMMMMM..A.',
+      '.A..DDDDDDDD..B.',
+      '.D............A.',
+      '.B............D.',
+      '................',
+      '................',
+    ],
+    e2: [ // power: fat cannon, round turret
+      '......LLLL......',
+      '......MMMM......',
+      '......DDDD......',
+      '.AA..MMMMMM..BB.',
+      '.DD.MMMMMMMM.AA.',
+      '.BB.MMLLMMLL.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.MM.DD.MM.AA.',
+      '.BB.MMMMMMMM.DD.',
+      '.AA.MMMMMMMM.BB.',
+      '.DD.DDDDDDDD.AA.',
+      '.BB..........DD.',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+    e3: [ // armor: full tile, twin guns, plates
+      '.AA..LL..LL..BB.',
+      '.DD..MM..MM..AA.',
+      '.AAMMMMMMMMMMBB.',
+      '.DDMMMMMMMMMMDD.',
+      '.AAMMMMLLMMLMAA.',
+      '.BBMMMMMMMMMMDD.',
+      '.AAMMMM.D.MMMBB.',
+      '.DDMMMMMMMMMMAA.',
+      '.BBMMMMMMMMMMDD.',
+      '.AADDDDDDDDDDBB.',
+      '.DDMMMMMMMMMMAA.',
+      '.BB..........DD.',
+      '.AA..........BB.',
+      '.DD..........AA.',
+      '................',
+      '................',
+    ],
   };
 
-  function fromMap(rows, key) {
-    let c = cache.get(key);
-    if (c) return c;
-    c = mk(rows[0].length, rows.length);
-    const g = c.getContext('2d');
-    rows.forEach((row, y) => {
-      for (let x = 0; x < row.length; x++) {
-        const col = COLORS[row[x]];
-        if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); }
+  function rot(rows, times) {
+    let r = rows;
+    for (let n = 0; n < (times & 3); n++) {
+      const h = r.length, w = r[0].length, next = [];
+      for (let x = 0; x < w; x++) {
+        let s = '';
+        for (let y = h - 1; y >= 0; y--) s += r[y][x] || '.';
+        next.push(s);
       }
-    });
-    cache.set(key, c);
-    return c;
+      r = next;
+    }
+    return r;
   }
+
+  function stamp(ctx, rows, pal, x0, y0, frame, scale) {
+    const s = scale || 1;
+    const swap = frame & 1;
+    for (let y = 0; y < rows.length; y++) {
+      const row = rows[y];
+      for (let x = 0; x < row.length; x++) {
+        let ch = row[x];
+        if (ch === 'A') ch = swap ? 'D' : 'M';
+        else if (ch === 'B') ch = swap ? 'M' : 'D';
+        const c = pal[ch];
+        if (!c) continue;
+        ctx.fillStyle = c;
+        ctx.fillRect(x0 + x * s, y0 + y * s, s, s);
+      }
+    }
+  }
+
+  function drawTank(ctx, x, y, kind, palName, dir, frame, scale) {
+    stamp(ctx, rot(TANKS[kind] || TANKS.e0, dir), PAL[palName] || PAL.silver, x | 0, y | 0, frame, scale || 1);
+  }
+
+  const INK = {
+    w: '#fcfcfc', s: '#d0d0d0', g: '#8a8a8a', k: '#303030', K: '#000000',
+    r: '#e02800', y: '#f0d000', o: '#f08820', b: '#3870e8', n: '#684020',
+    G: '#20a020', d: '#606060',
+  };
 
   const EAGLE = [
     '................',
-    '.w............w.',
+    '..w..........w..',
     '.ww....ww....ww.',
-    '.www..wkwk..www.',
-    '.wwww.wwww.wwww.',
+    '.ww...wkkkw..ww.',
+    '.www.wwwwww.www.',
     '..wwwwwwwwwwww..',
-    '..wwgswwwwsgww..',
-    '...wwgwwwwgww...',
-    '....wwwwwwww....',
-    '.....wwkkww.....',
+    '..wwgwwwwwwgww..',
+    '...wwwwwwwwww...',
+    '....wwwkkwww....',
     '.....ww..ww.....',
     '....www..www....',
     '....GGG..GGG....',
     '...wwwwwwwwww...',
     '..GGGGGGGGGGGG..',
     '................',
+    '................',
   ];
-
   const FLAG = [
     '................',
-    '..k.............',
-    '..kwwwwwww......',
-    '..kwrrrrwww.....',
-    '..kwrrrrrrww....',
-    '..kwrrrrwww.....',
-    '..kwwwwwww......',
-    '..k.............',
-    '..k.......GG....',
-    '..k....GGGGGG...',
-    '.GkGG.GGGkGGGG..',
-    'GGGGGGGkkGGGkGGG',
-    'GGkGGGGGGGGGGGGG',
-    'GGGGGkGGGGkGGGkG',
-    'kGGGGGGGGGGGGGGG',
+    '..K.............',
+    '..Kwwwwww.......',
+    '..Kwrrrrww......',
+    '..Kwrrrrrw......',
+    '..Kwrrrrww......',
+    '..Kwwwwww.......',
+    '..K.............',
+    '..K......GG.....',
+    '..K...GGGGGG....',
+    '.GK.GGGkGGGG....',
+    'GGGGGkkGGGGG....',
+    'GGGGGGGGGGGG....',
+    'kGGGGGGGGGGGk...',
+    '................',
     '................',
   ];
-
   const BONUS = {
     helmet: [
       '................',
+      '......wwww......',
+      '....wwssssww....',
+      '...wsswwwwssw...',
+      '..wsyyyyyyysw...',
+      '..wsssssssssw...',
+      '..wwwwwwwwwww...',
+      '..wwwwkkkkwww...',
+      '..wwwwk..kww....',
+      '...GGGk..k......',
+      '....GGGG........',
       '................',
-      '.....wwwwww.....',
-      '...wwwwsswwww...',
-      '..wwsswwwwwwww..',
-      '..wsswwwwwwwww..',
-      '.wwswwwwwwwwwww.',
-      '.wwwwwwwwwwwwww.',
-      '.wwwwwwwkkkkkkk.',
-      '.wwwwwwk........',
-      '.wwsswwk........',
-      '.GGGGGk.........',
       '................',
       '................',
       '................',
@@ -243,99 +259,80 @@ const Sprites = (() => {
     ],
     clock: [
       '................',
-      '......wwww......',
-      '....wwskksww....',
-      '...w...kk...w...',
-      '..w....kk....w..',
-      '..w....kk....w..',
-      '.w.....kk.....w.',
-      '.wkk...kk...kkw.',
-      '.w.....kkkk...w.',
-      '..w......kkk.w..',
-      '..w..........w..',
-      '...w........w...',
-      '....ww....ww....',
-      '......wwww......',
+      '......kkkk......',
+      '....kwwwwwwk....',
+      '...kw..kk..wk...',
+      '..kw...kk...wk..',
+      '..kw...kk...wk..',
+      '..wkkkkkkkkkkkw.',
+      '..kw...kk...wk..',
+      '..kw....kkk.wk..',
+      '..kw.......wk...',
+      '...kw.....wk....',
+      '....kwwwwwwk....',
+      '......kkkk......',
+      '................',
       '................',
       '................',
     ],
     shovel: [
       '................',
-      '............ww..',
-      '...........wwsw.',
-      '............ww..',
+      '.............w..',
+      '............wsw.',
+      '.............w..',
+      '............n...',
       '...........n....',
       '..........n.....',
-      '.........n......',
-      '....GGG.n.......',
-      '...GwwwG........',
-      '..GwwwwwG.......',
-      '..GwwswwG.......',
-      '..GwwwwG........',
-      '...GwwG.........',
-      '....GG..........',
+      '.....GG.n.......',
+      '....GwwGn.......',
+      '...GwwwwG.......',
+      '...GwsswG.......',
+      '...GwwwwG.......',
+      '....GwwG........',
+      '.....GG.........',
       '................',
       '................',
     ],
     star: [
       '................',
       '.......ww.......',
-      '.......ws.......',
-      '......wwww......',
-      '......wssw......',
-      '.wwwwwwwwwwwwww.',
-      '..wwwwsswwwwww..',
-      '...wwwwwwwwww...',
-      '....wwssssww....',
-      '....wwwwwwww....',
-      '...wwwww.wwwww..',
-      '...wwww...wwww..',
-      '..www.......www.',
+      '.......ys.......',
+      '......yyyy......',
+      '..wwwwyyyywwww..',
+      '.wyyyyyyyyyyyyw.',
+      '..yyyyyyyyyyyy..',
+      '...yyyyyyyyyy...',
+      '....yyyyyyyy....',
+      '....yy.yy.yy....',
+      '...yy..yy..yy...',
+      '..yy.......yy...',
+      '................',
       '................',
       '................',
       '................',
     ],
     grenade: [
       '................',
-      '.........ww.....',
-      '........wssw....',
-      '......GG...w....',
-      '......GG........',
-      '....wwwwww......',
-      '...wwkwwkww.....',
-      '..wwwwsswwww....',
-      '..wkwwkwwkww....',
-      '..wwwwwwwwww....',
-      '..wwkwwkwwkw....',
-      '..wwwwsswwww....',
-      '...wwkwwkww.....',
-      '....wwwwww......',
-      '................',
-      '................',
-    ],
-    gun: [ // instant max upgrade (as in Tank 1990)
-      '................',
-      '................',
-      '................',
-      '..wwwwwwwwwwww..',
-      '.wwssssssssssww.',
-      '.wwwwwwwwwwwwwk.',
-      '..kkkwwwwkkkkk..',
-      '.....ww.w.......',
-      '....www.w.......',
-      '....wwwww.......',
-      '...wwwww........',
-      '...wwww.........',
-      '..wwww..........',
-      '..www...........',
+      '..........ww....',
+      '.........wssw...',
+      '.......GG..w....',
+      '.......GG.......',
+      '.....wwwwww.....',
+      '....wwkwwkww....',
+      '...wwwwsswwww...',
+      '...wkwwkwwkww...',
+      '...wwwwwwwwww...',
+      '...wwkwwkwwkw...',
+      '...wwwwsswwww...',
+      '....wwkwwkww....',
+      '.....wwwwww.....',
       '................',
       '................',
     ],
     tank: [
       '................',
-      '................',
       '.......ww.......',
-      '.......ws.......',
+      '.......ys.......',
       '..www..ww..www..',
       '..wkw.wwww.wkw..',
       '..www.wssw.www..',
@@ -348,90 +345,94 @@ const Sprites = (() => {
       '................',
       '................',
       '................',
+      '................',
+    ],
+    gun: [
+      '................',
+      '......yyyy......',
+      '.....ykkkyy.....',
+      '....yk...ky.....',
+      '...yk..k..ky....',
+      '..yk..kk...ky...',
+      '..ykkkkkkkkky...',
+      '..yk..kk...ky...',
+      '...yk..k..ky....',
+      '....yk...ky.....',
+      '.....ykkky......',
+      '......yyy.......',
+      '....wwwwww......',
+      '...wwssssww.....',
+      '....wwwwww......',
+      '................',
     ],
   };
 
-  function bonusIcon(type) {
-    const key = 'bonus:' + type;
-    let c = cache.get(key);
-    if (c) return c;
-    const icon = fromMap(BONUS[type], 'raw:' + type);
-    c = mk(16, 16);
-    const g = c.getContext('2d');
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) g.drawImage(icon, dx, 1 + dy);
-    g.globalCompositeOperation = 'source-in';
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, 16, 16);
-    g.globalCompositeOperation = 'source-over';
-    g.drawImage(icon, 0, 1);
-    cache.set(key, c);
-    return c;
+  function drawMap(ctx, x, y, rows, scale) {
+    stamp(ctx, rows, INK, x | 0, y | 0, 0, scale || 1);
   }
 
-  function explosion(size, frame) {
-    const key = `x:${size}:${frame}`;
-    let c = cache.get(key);
-    if (c) return c;
-    c = mk(size, size);
-    const g = c.getContext('2d');
-    const r0 = size / 2, radius = r0 * [0.42, 0.72, 1.0, 0.82][frame];
-    let seed = size * 13 + frame * 7 + 1;
+  function drawExplosion(ctx, x, y, size, frame) {
+    const r0 = size / 2;
+    const radius = r0 * [0.45, 0.75, 1, 0.7][frame] || r0;
+    let seed = size * 17 + frame * 9 + 3;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x + 0.5 - r0, y + 0.5 - r0) / radius + rnd() * 0.28 - 0.14;
+    for (let py = 0; py < size; py++) for (let px = 0; px < size; px++) {
+      const d = Math.hypot(px + 0.5 - r0, py + 0.5 - r0) / radius + rnd() * 0.22 - 0.1;
       if (d > 1) continue;
-      g.fillStyle = d < 0.28 ? '#fcfcfc' : d < 0.5 ? '#fcb030' : d < 0.72 ? '#e03010' : '#681078';
-      g.fillRect(x, y, 1, 1);
+      ctx.fillStyle = d < 0.25 ? '#fcfcfc' : d < 0.5 ? '#fcb030' : d < 0.75 ? '#e03010' : '#681080';
+      ctx.fillRect(x + px, y + py, 1, 1);
     }
-    cache.set(key, c);
-    return c;
   }
 
-  function spawnStar(frame) {
-    const key = 'spawn:' + frame;
-    let c = cache.get(key);
-    if (c) return c;
-    c = mk(16, 16);
-    const g = c.getContext('2d');
-    const r = [2, 4, 6, 7][frame];
-    g.fillStyle = '#fcfcfc';
-    g.fillRect(8 - r, 7, r * 2, 2);
-    g.fillRect(7, 8 - r, 2, r * 2);
-    g.fillStyle = '#80d8fc';
-    for (let i = 1; i < r * 0.7; i++) {
-      g.fillRect(8 + i - 1, 8 + i - 1, 1, 1);
-      g.fillRect(8 - i, 8 - i, 1, 1);
-      g.fillRect(8 + i - 1, 8 - i, 1, 1);
-      g.fillRect(8 - i, 8 + i - 1, 1, 1);
+  function drawSpawn(ctx, x, y, frame) {
+    const r = [2, 4, 6, 7][frame] || 4;
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(x + 8 - r, y + 7, r * 2, 2);
+    ctx.fillRect(x + 7, y + 8 - r, 2, r * 2);
+    ctx.fillStyle = '#80d8fc';
+    for (let i = 1; i < r; i++) {
+      ctx.fillRect(x + 8 + i - 1, y + 8 + i - 1, 1, 1);
+      ctx.fillRect(x + 7 - i, y + 7 - i, 1, 1);
+      ctx.fillRect(x + 8 + i - 1, y + 7 - i, 1, 1);
+      ctx.fillRect(x + 7 - i, y + 8 + i - 1, 1, 1);
     }
-    g.fillStyle = '#fcfc54';
-    g.fillRect(7, 7, 2, 2);
-    g.fillStyle = '#fcfcfc';
-    g.fillRect(6, 6, 4, 4);
-    cache.set(key, c);
-    return c;
+    ctx.fillStyle = '#fcfc54';
+    ctx.fillRect(x + 7, y + 7, 2, 2);
   }
 
-  function shield(frame) {
-    const key = 'shield:' + frame;
+  function drawShield(ctx, x, y, frame) {
+    ctx.fillStyle = frame & 1 ? '#fcfcfc' : '#80e0fc';
+    for (let a = 0; a < 16; a++) {
+      if ((a + frame) & 1) continue;
+      const t = a / 16 * Math.PI * 2;
+      ctx.fillRect(x + Math.round(7.5 + Math.cos(t) * 7), y + Math.round(7.5 + Math.sin(t) * 7), 1, 1);
+    }
+  }
+
+  // Canvas copies kept for any caller that still uses drawImage.
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const cache = new Map();
+  function baked(key, w, h, paint) {
     let c = cache.get(key);
     if (c) return c;
-    c = mk(16, 16);
-    const g = c.getContext('2d');
-    g.fillStyle = frame & 1 ? '#fcfcfc' : '#80e0fc';
-    for (let a = 0; a < 56; a++) {
-      if ((a + frame * 3) % 7 > 3) continue;
-      const t = a / 56 * Math.PI * 2;
-      g.fillRect(Math.round(7.5 + Math.cos(t) * 7.4), Math.round(7.5 + Math.sin(t) * 7.4), 1, 1);
-    }
+    c = mk(w, h);
+    paint(c.getContext('2d'));
     cache.set(key, c);
     return c;
   }
 
   return {
-    tank, bonusIcon, explosion, spawnStar, shield,
-    eagle: () => fromMap(EAGLE, 'eagle'),
-    flag: () => fromMap(FLAG, 'flag'),
+    drawTank, drawExplosion, drawSpawn, drawShield,
+    drawEagle: (ctx, x, y) => drawMap(ctx, x, y, EAGLE),
+    drawFlag: (ctx, x, y) => drawMap(ctx, x, y, FLAG),
+    drawBonus: (ctx, x, y, type) => drawMap(ctx, x, y, BONUS[type] || BONUS.star),
+    tank: (kind, pal, dir, frame) => baked(`t:${kind}:${pal}:${dir}:${frame}`, 16, 16, g => drawTank(g, 0, 0, kind, pal, dir, frame)),
+    eagle: () => baked('eagle', 16, 16, g => drawMap(g, 0, 0, EAGLE)),
+    flag: () => baked('flag', 16, 16, g => drawMap(g, 0, 0, FLAG)),
+    bonusIcon: type => baked('b:' + type, 16, 16, g => drawMap(g, 0, 0, BONUS[type] || BONUS.star)),
+    explosion: (size, frame) => baked(`x:${size}:${frame}`, size, size, g => drawExplosion(g, 0, 0, size, frame)),
+    spawnStar: frame => baked('s:' + frame, 16, 16, g => drawSpawn(g, 0, 0, frame)),
+    shield: frame => baked('h:' + frame, 16, 16, g => drawShield(g, 0, 0, frame)),
     BONUS_TYPES: Object.keys(BONUS),
   };
 })();
