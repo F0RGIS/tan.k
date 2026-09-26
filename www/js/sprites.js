@@ -141,18 +141,35 @@ const Sprites = (() => {
     }
   }
 
+  // Integer rotate. Canvas rotate + imageSmoothingEnabled=false drops pixels
+  // (and whole sprites) on several browsers / Android WebView.
+  function rot16(src, dir) {
+    const c = mk(16, 16);
+    const g = c.getContext('2d');
+    if (!dir) { g.drawImage(src, 0, 0); return c; }
+    const S = src.getContext('2d').getImageData(0, 0, 16, 16).data;
+    const dst = g.createImageData(16, 16);
+    const D = dst.data;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      let sx, sy;
+      if (dir === 1) { sx = y; sy = 15 - x; }
+      else if (dir === 2) { sx = 15 - x; sy = 15 - y; }
+      else { sx = 15 - y; sy = x; }
+      const si = (sy * 16 + sx) * 4, di = (y * 16 + x) * 4;
+      D[di] = S[si]; D[di + 1] = S[si + 1]; D[di + 2] = S[si + 2]; D[di + 3] = S[si + 3];
+    }
+    g.putImageData(dst, 0, 0);
+    return c;
+  }
+
   function tank(kind, palName, dir, frame) {
     const key = `t:${kind}:${palName}:${dir}:${frame}`;
     let c = cache.get(key);
     if (c) return c;
     const up = mk(16, 16);
-    drawTankUp(up.getContext('2d'), kind, PAL[palName], frame);
-    c = mk(16, 16);
-    const g = c.getContext('2d');
-    g.imageSmoothingEnabled = false;
-    g.translate(8, 8);
-    g.rotate(dir * Math.PI / 2);
-    g.drawImage(up, -8, -8);
+    const p = PAL[palName] || PAL.silver;
+    drawTankUp(up.getContext('2d'), kind, p, frame & 1);
+    c = rot16(up, dir & 3);
     cache.set(key, c);
     return c;
   }
