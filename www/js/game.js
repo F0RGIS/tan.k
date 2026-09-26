@@ -128,7 +128,7 @@
   let twoPlayer = false;
   let stage = 1;
   let players = [];
-  let tanks = [], bullets = [], effects = [], spawns = [], popups = [];
+  let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [];
   let queue = [], enemySpawned = 0, spawnTimer = 0, spawnIdx = 0;
   let bonus = null;
   let freezeT = 0, shovelT = 0;
@@ -159,7 +159,7 @@
 
   function startStage() {
     loadStage(stage);
-    tanks = []; bullets = []; effects = []; spawns = []; popups = [];
+    tanks = []; bullets = []; effects = []; spawns = []; popups = []; particles = [];
     queue = Levels.enemies(stage);
     enemySpawned = 0; spawnTimer = 0; spawnIdx = 0;
     bonus = null; freezeT = 0; shovelT = 0;
@@ -184,6 +184,7 @@
     spawns.push({ x, y, t: 0, done: () => {
       p.tank = makeTank({ x, y, dir: 0, player: p, speed: PLAYER_SPEED, shield: 180 });
       tanks.push(p.tank);
+      burst(x + 8, y + 8, 'spawn');
     } });
   }
 
@@ -195,6 +196,7 @@
     spawns.push({ x, y, t: 0, enemy: true, done: () => {
       const e = ENEMY[type];
       tanks.push(makeTank({ x, y, dir: 2, type, speed: e.speed, hp: e.hp, bonus: BONUS_INDEX.includes(idx), ai: 0 }));
+      burst(x + 8, y + 8, 'spawn');
     } });
   }
 
@@ -264,6 +266,29 @@
 
   function onIce(t) { return cell((t.x + 8) >> 2, (t.y + 8) >> 2) === T_ICE; }
 
+
+  const PARTICLE_CAP = 96;
+  const PARTICLE_KINDS = {
+    brick: { n: 7, colors: ['#d86c28', '#9c4a00', '#6c6c6c'], speed: 1.3, life: 16 },
+    steel: { n: 5, colors: ['#fcfcfc', '#adadad', '#636363'], speed: 1.7, life: 10 },
+    boom:  { n: 16, colors: ['#fcfcfc', '#fcb030', '#e03010', '#681078'], speed: 1.9, life: 20 },
+    armor: { n: 6, colors: ['#fcf0a0', '#d89800', '#fcfcfc'], speed: 1.4, life: 12 },
+    spawn: { n: 8, colors: ['#fcfcfc', '#80d8fc', '#fcfc54'], speed: 0.9, life: 14 },
+  };
+  function burst(x, y, kind) {
+    const spec = PARTICLE_KINDS[kind];
+    if (!spec) return;
+    for (let i = 0; i < spec.n && particles.length < PARTICLE_CAP; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = spec.speed * (0.35 + Math.random() * 0.65);
+      particles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: spec.life + (Math.random() * 5 | 0), age: 0,
+        c: spec.colors[(Math.random() * spec.colors.length) | 0],
+      });
+    }
+  }
+
   function fire(t) {
     let speed, power = false;
     if (t.player) { const l = t.player.level; speed = l >= 1 ? 5 : 3; power = l >= 3; }
@@ -300,6 +325,8 @@
       }
     }
     if (b.owner.player) Sfx.play(hitBrick ? 'brick' : hitSteel ? 'steel' : 'brick');
+    if (hitBrick) burst(b.x, b.y, 'brick');
+    else if (hitSteel) burst(b.x, b.y, 'steel');
   }
 
   function bulletStep(b) {
@@ -338,6 +365,7 @@
 
   function bigBoom(t) {
     effects.push({ x: t.x + 8, y: t.y + 8, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 4, t: 0 });
+    burst(t.x + 8, t.y + 8, 'boom');
   }
 
   function addScore(p, pts) {
@@ -348,7 +376,7 @@
   function hitEnemy(t, p) {
     if (t.bonus) { t.bonus = false; placeBonus(); }
     t.hp--;
-    if (t.hp > 0) { Sfx.play('hitArmor'); return; }
+    if (t.hp > 0) { Sfx.play('hitArmor'); burst(t.x + 8, t.y + 8, 'armor'); return; }
     t.dead = true;
     bigBoom(t);
     Sfx.play('explode');
@@ -375,6 +403,7 @@
   function destroyBase() {
     baseDead = true;
     effects.push({ x: 104, y: 200, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 5, t: 0 });
+    burst(104, 200, 'boom');
     Sfx.play('bigExplode');
     if (gameOverT < 0) gameOverT = 0;
   }
@@ -501,6 +530,8 @@
 
     for (const e of effects) e.t++;
     effects = effects.filter(e => e.t < e.seq.length * e.rate);
+    for (const q of particles) { q.x += q.vx; q.y += q.vy; q.age++; }
+    if (particles.length) particles = particles.filter(q => q.age < q.life);
     for (const p of popups) p.t++;
     popups = popups.filter(p => p.t < p.delay + 45);
     if (bonus) bonus.t++;
