@@ -32,37 +32,63 @@
   canvas.width = W; canvas.height = H;
   const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 
-  // ---------- Terrain patterns (8x8, sampled by 4x4 cells) ----------
-  const PAT = (() => {
-    const px = (g, c, x, y, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-    const brick = mk(8, 8), bg = brick.getContext('2d');
-    px(bg, '#9c4a00', 0, 0, 8, 8);
-    px(bg, '#d86c28', 0, 0, 7, 1); px(bg, '#d86c28', 0, 4, 3, 1); px(bg, '#d86c28', 4, 4, 4, 1);
-    px(bg, '#6c6c6c', 0, 3, 8, 1); px(bg, '#6c6c6c', 0, 7, 8, 1);
-    px(bg, '#6c6c6c', 7, 0, 1, 3); px(bg, '#6c6c6c', 3, 4, 1, 3);
-    const steel = mk(8, 8), sg = steel.getContext('2d');
-    px(sg, '#adadad', 0, 0, 8, 8);
-    px(sg, '#fcfcfc', 0, 0, 7, 1); px(sg, '#fcfcfc', 0, 0, 1, 7);
-    px(sg, '#636363', 1, 7, 7, 1); px(sg, '#636363', 7, 1, 1, 7);
-    px(sg, '#fcfcfc', 2, 2, 4, 4); px(sg, '#636363', 3, 5, 3, 1); px(sg, '#636363', 5, 3, 1, 3);
-    const ice = mk(8, 8), ig = ice.getContext('2d');
-    px(ig, '#c8c8d8', 0, 0, 8, 8);
-    for (let i = 0; i < 8; i++) { px(ig, '#8888a8', i, 7 - i); px(ig, '#fcfcfc', (i + 4) % 8, 7 - i); }
-    const trees = mk(8, 8), tg = trees.getContext('2d');
-    px(tg, '#005800', 0, 0, 8, 8);
-    const leaf = [[1, 0], [4, 1], [6, 0], [0, 3], [2, 2], [5, 3], [7, 4], [3, 5], [1, 6], [6, 6], [4, 7], [0, 7]];
-    for (const [x, y] of leaf) { px(tg, '#80d010', x, y, 2, 1); px(tg, '#003000', x, y + 1); }
-    const water = [0, 1].map(f => {
-      const c = mk(8, 8), g = c.getContext('2d');
-      px(g, '#2038ec', 0, 0, 8, 8);
-      const waves = f ? [[1, 1], [5, 3], [2, 5], [6, 7]] : [[3, 1], [0, 3], [5, 5], [1, 7]];
-      for (const [x, y] of waves) { px(g, '#9cc4fc', x, y, 2, 1); px(g, '#9cc4fc', x + 2, y - 1, 1, 1); }
-      return c;
-    });
-    return { brick, steel, ice, trees, water };
-  })();
+  // 8x8 tiles, sampled in 4x4 pieces. Painted with fillRect (no drawImage).
+  const TILE = {
+    brick: { L:'#f0a070', M:'#c86828', D:'#6a6a6a',
+      rows:['MMMMMMMD','LLLLLLLD','DDDDDDDD','MMMMMMMD','MMMDMMMM','LLLDLLLL','DDDDDDDD','MMMMMMMM'] },
+    steel: { L:'#fcfcfc', M:'#b0b0b0', D:'#5a5a5a',
+      rows:['LLLLLLLD','LMMMMMMD','LMLLLLMD','LMLMMLMD','LMLDDDMD','LMDDDDMD','LDDDDDDD','DDDDDDDD'] },
+    ice: { L:'#fcfcfc', M:'#d0d0e0', D:'#8888a8',
+      rows:['MMMMMMMM','MLDMLDMM','MMLDMLDM','MMMLDMLD','DMMMLDML','LDMMMLDM','MLDMMMLD','MMLDMMML'] },
+    trees: { L:'#80d010', M:'#006800', D:'#003800',
+      rows:['MLMLDMLM','LMDMLMDL','DMLMLDML','MLDMLMLD','LMLDMLDM','MDMLMLDM','LMLDMLML','DMLMLDML'] },
+    water0: { L:'#9cc4fc', M:'#2848e8', D:'#1830b0',
+      rows:['MMMMMMMM','MLLMMMMM','MMMLLMMM','MMMMMLLM','LLMMMMMM','MMLLMMMM','MMMMMLLM','MMMMMMML'] },
+    water1: { L:'#9cc4fc', M:'#2848e8', D:'#1830b0',
+      rows:['MMMMMMMM','MMMMLLMM','MMMMMMLL','LLMMMMMM','MMLLMMMM','MMMMMLLM','MLLMMMMM','MMMLLMMM'] },
+  };
+  function paintTile(g, name, dx, dy, sx, sy, sw, sh) {
+    const t = TILE[name];
+    for (let y = 0; y < sh; y++) {
+      const row = t.rows[(sy + y) & 7];
+      let x = 0;
+      while (x < sw) {
+        const col = t[row[(sx + x) & 7]];
+        if (!col) { x++; continue; }
+        let x2 = x + 1;
+        while (x2 < sw && t[row[(sx + x2) & 7]] === col) x2++;
+        g.fillStyle = col;
+        g.fillRect(dx + x, dy + y, x2 - x, 1);
+        x = x2;
+      }
+    }
+  }
+  // Copy an offscreen canvas with fillRect. drawImage of a canvas is blank
+  // on some browsers when imageSmoothingEnabled is false.
+  function blitCanvas(ctx, src, dx, dy) {
+    const w = src.width, h = src.height;
+    const data = src.getContext('2d').getImageData(0, 0, w, h).data;
+    let style = '';
+    for (let y = 0; y < h; y++) {
+      let x = 0;
+      const row = y * w;
+      while (x < w) {
+        const i = (row + x) * 4;
+        if (data[i + 3] < 16) { x++; continue; }
+        let x2 = x + 1;
+        while (x2 < w) {
+          const j = (row + x2) * 4;
+          if (data[j + 3] < 16 || data[j] !== data[i] || data[j + 1] !== data[i + 1] || data[j + 2] !== data[i + 2]) break;
+          x2++;
+        }
+        const fill = 'rgb(' + data[i] + ',' + data[i + 1] + ',' + data[i + 2] + ')';
+        if (fill !== style) { ctx.fillStyle = fill; style = fill; }
+        ctx.fillRect(dx + x, dy + y, x2 - x, 1);
+        x = x2;
+      }
+    }
+  }
 
-  // ---------- World state ----------
   const grid = new Uint8Array(N * N);
   const terrainCv = mk(FS, FS), terrainG = terrainCv.getContext('2d');
   const treesCv = mk(FS, FS), treesG = treesCv.getContext('2d');
@@ -76,8 +102,8 @@
   function drawCell(mx, my) {
     const x = mx * 4, y = my * 4, v = grid[my * N + mx];
     terrainG.clearRect(x, y, 4, 4);
-    const p = v === T_BRICK ? PAT.brick : v === T_STEEL ? PAT.steel : v === T_ICE ? PAT.ice : null;
-    if (p) terrainG.drawImage(p, x % 8, y % 8, 4, 4, x, y, 4, 4);
+    const name = v === T_BRICK ? 'brick' : v === T_STEEL ? 'steel' : v === T_ICE ? 'ice' : null;
+    if (name) paintTile(terrainG, name, x, y, x & 7, y & 7, 4, 4);
   }
   function setCell(mx, my, v) { if (cell(mx, my) < 0) return; grid[my * N + mx] = v; drawCell(mx, my); }
 
@@ -114,7 +140,7 @@
     waterCells = [];
     for (let my = 0; my < N; my++) for (let mx = 0; mx < N; mx++) {
       const v = grid[my * N + mx];
-      if (v === T_TREES) treesG.drawImage(PAT.trees, (mx * 4) % 8, (my * 4) % 8, 4, 4, mx * 4, my * 4, 4, 4);
+      if (v === T_TREES) paintTile(treesG, 'trees', mx * 4, my * 4, (mx * 4) & 7, (my * 4) & 7, 4, 4);
       else if (v === T_WATER) waterCells.push(mx, my);
       else drawCell(mx, my);
     }
@@ -646,21 +672,9 @@
       if (!data[(y * w + x) * 4 + 3]) continue;
       for (let by = 0; by < scale; by += 4) for (let bx = 0; bx < scale; bx += 4) {
         const px = x0 + x * scale + bx, py = top + y * scale + by;
-        ctx.drawImage(PAT.brick, px & 4, py & 4, 4, 4, px, py, 4, 4);
+        paintTile(ctx, 'brick', px, py, px & 4, py & 4, 4, 4);
       }
     }
-  }
-
-  function tankImage(t) {
-    let kind, pal;
-    if (t.player) { kind = 'p' + t.player.level; pal = t.player.idx ? 'green' : 'yellow'; }
-    else {
-      kind = 'e' + t.type;
-      pal = 'silver';
-      if (t.type === 3 && t.hp > 1) pal = (frame >> 2) & 1 ? ARMOR_PAL[t.hp] : 'silver';
-      if (t.bonus && (frame >> 3) & 1) pal = 'red';
-    }
-    return Sprites.tank(kind, pal, t.dir, (t.anim >> 2) & 1);
   }
 
   function drawStar(x, y, c) { // 5x5 upgrade star
@@ -685,7 +699,7 @@
       text(String(p.lives), 243, y + 9, COL.black);
       for (let s = 0; s < 3; s++) drawStar(233 + s * 7, y + 18, s < p.level ? '#fcfc54' : '#5c5c5c');
     });
-    ctx.drawImage(Sprites.flag(), 232, 170);
+    Sprites.drawFlag(ctx, 232, 170);
     text(String(stage), 248, 188, COL.black, 1, 'right');
   }
 
@@ -693,35 +707,39 @@
     ctx.fillStyle = COL.black;
     ctx.fillRect(FX, FY, FS, FS);
     // Water (animated)
-    const wf = PAT.water[(frame >> 5) & 1];
+    const wf = (frame >> 5) & 1 ? 'water1' : 'water0';
     for (let i = 0; i < waterCells.length; i += 2) {
       const x = waterCells[i] * 4, y = waterCells[i + 1] * 4;
-      ctx.drawImage(wf, x % 8, y % 8, 4, 4, FX + x, FY + y, 4, 4);
+      paintTile(ctx, wf, FX + x, FY + y, x & 7, y & 7, 4, 4);
     }
-    ctx.drawImage(terrainCv, FX, FY);
-    ctx.drawImage(baseDead ? Sprites.flag() : Sprites.eagle(), FX + 96, FY + 192);
+    blitCanvas(ctx, terrainCv, FX, FY);
+    if (baseDead) Sprites.drawFlag(ctx, FX + 96, FY + 192);
+    else Sprites.drawEagle(ctx, FX + 96, FY + 192);
 
     for (const s of spawns) {
       const f = [0, 1, 2, 3, 2, 1][(s.t >> 2) % 6];
-      ctx.drawImage(Sprites.spawnStar(f), FX + (s.x | 0), FY + (s.y | 0));
+      Sprites.drawSpawn(ctx, FX + (s.x | 0), FY + (s.y | 0), f);
     }
     for (const t of tanks) {
       if (t.player && t.frozen > 0 && (frame >> 3) & 1) continue;
-      // Nearest-neighbor drawImage drops the sprite when dest x/y are fractional.
-      ctx.drawImage(tankImage(t), FX + Math.round(t.x), FY + Math.round(t.y));
-      if (t.shield > 0) ctx.drawImage(Sprites.shield((frame >> 1) & 1), FX + Math.round(t.x), FY + Math.round(t.y));
+      const kind = t.player ? 'p' + t.player.level : 'e' + t.type;
+      let pal = t.player ? (t.player.idx ? 'green' : 'yellow') : 'silver';
+      if (!t.player && t.type === 3 && t.hp > 1) pal = (frame >> 2) & 1 ? ARMOR_PAL[t.hp] : 'silver';
+      if (!t.player && t.bonus && (frame >> 3) & 1) pal = 'red';
+      const x = FX + Math.round(t.x), y = FY + Math.round(t.y);
+      Sprites.drawTank(ctx, x, y, kind, pal, t.dir, (t.anim >> 2) & 1);
+      if (t.shield > 0) Sprites.drawShield(ctx, x, y, (frame >> 1) & 1);
     }
     ctx.fillStyle = COL.white;
     for (const b of bullets) {
       ctx.fillStyle = '#adadad'; ctx.fillRect(FX + b.x - 2, FY + b.y - 2, 4, 4);
       ctx.fillStyle = COL.white; ctx.fillRect(FX + b.x - 1, FY + b.y - 1, 2, 2);
     }
-    ctx.drawImage(treesCv, FX, FY);
-    if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) ctx.drawImage(Sprites.bonusIcon(bonus.type), FX + Math.round(bonus.x), FY + Math.round(bonus.y));
+    blitCanvas(ctx, treesCv, FX, FY);
+    if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) Sprites.drawBonus(ctx, FX + Math.round(bonus.x), FY + Math.round(bonus.y), bonus.type);
     for (const e of effects) {
       const f = e.seq[Math.floor(e.t / e.rate)];
-      const img = Sprites.explosion(e.size, e.size === 16 ? Math.min(2, f) : f);
-      ctx.drawImage(img, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2));
+      Sprites.drawExplosion(ctx, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2), e.size, e.size === 16 ? Math.min(2, f) : f);
     }
     for (const p of popups) {
       if (p.t < p.delay) continue;
@@ -759,7 +777,7 @@
       for (const e of Levels.enemies(stage)) counts[e]++;
       ENEMY_NAME.forEach((name, i) => {
         const cx = 44 + i * 56;
-        ctx.drawImage(Sprites.tank('e' + i, i === 3 ? 'green' : 'silver', 0, 0), cx - 16, H / 2 - 26, 32, 32);
+        Sprites.drawTank(ctx, cx - 16, H / 2 - 26, 'e' + i, i === 3 ? 'green' : 'silver', 0, 0, 2);
         text('X' + counts[i], cx, H / 2 + 10, COL.black, 1, 'center');
         text(name, cx, H / 2 + 20, COL.black, 1, 'center');
       });
@@ -780,7 +798,7 @@
     text('BATTLE CITY TRIBUTE', W / 2, 104, COL.orange, 1, 'center');
     const items = ['1 PLAYER', '2 PLAYERS', 'SOUND ' + (Sfx.muted ? 'OFF' : 'ON')];
     items.forEach((s, i) => text(s, 96, 128 + i * 16));
-    if (modeT >= 120) ctx.drawImage(Sprites.tank('p0', 'yellow', 1, (frame >> 2) & 1), 72, 124 + menuSel * 16);
+    if (modeT >= 120) Sprites.drawTank(ctx, 72, 124 + menuSel * 16, 'p0', 'yellow', 1, (frame >> 2) & 1);
     const touch = Input.source === 'touch', pad = Input.source === 'gamepad';
     const hint = touch ? 'D-PAD MOVE   FIRE BUTTON SHOOT'
       : pad ? 'D-PAD MOVE   A/B FIRE   START PAUSE'
@@ -802,7 +820,7 @@
     for (let r = 0; r < 4; r++) {
       if (r > tl.row) break;
       const y = 80 + r * 22;
-      ctx.drawImage(Sprites.tank('e' + r, 'silver', 0, 0), W / 2 - 8, y - 4);
+      Sprites.drawTank(ctx, W / 2 - 8, y - 4, 'e' + r, 'silver', 0, 0);
       players.forEach((p, i) => {
         const k = r < tl.row ? tl.rows[r][i] : Math.min(tl.count, tl.rows[r][i]);
         if (i === 0) {
