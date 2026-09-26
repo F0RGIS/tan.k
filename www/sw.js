@@ -1,5 +1,5 @@
 // Cache-first service worker so the game works offline once installed.
-const CACHE = 'tank-v5';
+const CACHE = 'tank-v6';
 const ASSETS = [
   './', './index.html', './style.css', './manifest.webmanifest',
   './js/font.js', './js/audio.js', './js/input.js', './js/levels.js', './js/sprites.js', './js/game.js',
