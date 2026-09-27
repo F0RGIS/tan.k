@@ -371,15 +371,46 @@ const Sprites = (() => {
   }
 
   function drawExplosion(ctx, x, y, size, frame) {
-    const r0 = size / 2;
-    const radius = r0 * [0.45, 0.75, 1, 0.7][frame] || r0;
-    let seed = size * 17 + frame * 9 + 3;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let py = 0; py < size; py++) for (let px = 0; px < size; px++) {
-      const d = Math.hypot(px + 0.5 - r0, py + 0.5 - r0) / radius + rnd() * 0.22 - 0.1;
-      if (d > 1) continue;
-      ctx.fillStyle = d < 0.25 ? '#fcfcfc' : d < 0.5 ? '#fcb030' : d < 0.75 ? '#e03010' : '#681080';
-      ctx.fillRect(x + px, y + py, 1, 1);
+    const cx = x + (size >> 1), cy = y + (size >> 1);
+    const big = size > 16;
+    const f = frame | 0;
+    const smokeAt = big ? 4 : 3;
+    if (f >= smokeAt) {
+      const puffs = big
+        ? [[0, 0, 5], [-7, -2, 3], [6, 3, 3], [-2, 7, 2], [5, -6, 2]]
+        : [[0, 0, 3], [-3, 2, 2]];
+      ctx.fillStyle = f === smokeAt ? '#d8d8d8' : '#787878';
+      for (const [ox, oy, r] of puffs) {
+        ctx.fillRect(cx + ox - r, cy + oy - (r >> 1), r * 2, r);
+      }
+      return;
+    }
+    const reach = Math.round((big ? [4, 8, 13, 15] : [3, 5, 7])[f] || 6);
+    const arm = ['#fcfcfc', '#ffe070', '#fc9820', '#e02010'][f] || '#e02010';
+    ctx.fillStyle = arm;
+    ctx.fillRect(cx - reach, cy - 1, reach * 2 + 1, f === 0 ? 3 : 2);
+    ctx.fillRect(cx - 1, cy - reach, f === 0 ? 3 : 2, reach * 2 + 1);
+    if (f >= 1) {
+      ctx.fillStyle = f >= 2 ? '#e02010' : '#fcb030';
+      const diag = Math.round(reach * 0.65);
+      for (let i = 2; i <= diag; i += 2) {
+        ctx.fillRect(cx + i, cy + i, 1, 1);
+        ctx.fillRect(cx - i, cy + i, 1, 1);
+        ctx.fillRect(cx + i, cy - i, 1, 1);
+        ctx.fillRect(cx - i, cy - i, 1, 1);
+      }
+    }
+    const core = f === 0 ? (big ? 6 : 3) : 2;
+    ctx.fillStyle = '#fcfcfc';
+    ctx.fillRect(cx - (core >> 1), cy - (core >> 1), core, core);
+    if (big && f >= 2) {
+      ctx.fillStyle = f === 2 ? '#ffe070' : '#fcfcfc';
+      const ring = 8 + f * 4;
+      for (let a = 0; a < 20; a++) {
+        if ((a + f) % 2) continue;
+        const t = a / 20 * Math.PI * 2;
+        ctx.fillRect(cx + Math.round(Math.cos(t) * ring), cy + Math.round(Math.sin(t) * ring), 1, 1);
+      }
     }
   }
 
