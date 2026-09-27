@@ -405,25 +405,33 @@ const Sprites = (() => {
     ctx.fillRect(cx - (core >> 1), cy - (core >> 1), core, core);
   }
 
-  function drawShockwave(ctx, x, y, r, max, open) {
-    const fade = 1 - r / max;
-    const n = Math.max(10, r * 1.4 | 0);
-    ctx.fillStyle = fade > 0.55 ? '#fcfcfc' : fade > 0.25 ? '#ffe070' : '#e02010';
+  function drawShockwave(ctx, x, y, r, max, open, pack) {
+    const n = Math.max(12, r * 1.6 | 0);
+    const tight = (pack || 0) > 0.45;
+    ctx.fillStyle = tight ? '#fcfcfc' : '#ffe070';
     for (let i = 0; i < n; i++) {
       if (open && open[i] === 0) continue;
-      if ((i + (r | 0)) & 1) continue;
+      if (!tight && (i & 1)) continue;
       const a = i / n * Math.PI * 2;
-      ctx.fillRect(x + Math.round(Math.cos(a) * r), y + Math.round(Math.sin(a) * r), 1, 1);
+      const px = x + Math.round(Math.cos(a) * r);
+      const py = y + Math.round(Math.sin(a) * r);
+      ctx.fillRect(px, py, 1, 1);
+      if (tight) {
+        ctx.fillStyle = '#ffe8a0';
+        ctx.fillRect(x + Math.round(Math.cos(a) * (r - 1)), y + Math.round(Math.sin(a) * (r - 1)), 1, 1);
+        ctx.fillStyle = '#fcfcfc';
+      }
     }
-    const inner = r - (max > 24 ? 4 : 2);
-    if (inner > 3) {
-      ctx.fillStyle = fade > 0.4 ? '#fc9820' : '#681010';
-      const n2 = Math.max(8, n - 6);
+    const back = r - (tight ? 7 : 5);
+    if (back > 4) {
+      ctx.fillStyle = '#6888a8';
+      const n2 = Math.max(8, (n * 0.7) | 0);
       for (let i = 0; i < n2; i++) {
+        if (i & 1) continue;
         const src = open ? open[Math.min(n - 1, (i * n / n2) | 0)] : 1;
         if (src === 0) continue;
-        const a = (i + 0.5) / n2 * Math.PI * 2;
-        ctx.fillRect(x + Math.round(Math.cos(a) * inner), y + Math.round(Math.sin(a) * inner), 1, 1);
+        const a = i / n2 * Math.PI * 2;
+        ctx.fillRect(x + Math.round(Math.cos(a) * back), y + Math.round(Math.sin(a) * back), 1, 1);
       }
     }
   }
