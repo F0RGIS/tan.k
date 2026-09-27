@@ -306,11 +306,14 @@
     return seq[frame % 4];
   }
 
-  const PARTICLE_CAP = 96;
+  const PARTICLE_CAP = 140;
   const PARTICLE_KINDS = {
     brick: { n: 7, colors: ['#d86c28', '#9c4a00', '#6c6c6c'], speed: 1.3, life: 16 },
     steel: { n: 5, colors: ['#fcfcfc', '#adadad', '#636363'], speed: 1.7, life: 10 },
-    boom:  { n: 16, colors: ['#fcfcfc', '#fcb030', '#e03010', '#681078'], speed: 1.9, life: 20 },
+    spark: { n: 6, colors: ['#fcfcfc', '#ffe070', '#fc9820', '#e02010'], speed: 1.5, life: 12 },
+    boom:  { n: 14, colors: ['#fcfcfc', '#ffe070', '#fc9820', '#e02010'], speed: 2.1, life: 18 },
+    smoke: { n: 8, colors: ['#f0f0f0', '#b0b0b0', '#686868'], speed: 0.35, life: 32, rise: -0.06, w: 2 },
+    debris: { n: 8, colors: ['#2a2a2a', '#c86828', '#888888', '#6b6b00'], speed: 1.6, life: 18, rise: 0.07, w: 2 },
     armor: { n: 6, colors: ['#fcf0a0', '#d89800', '#fcfcfc'], speed: 1.4, life: 12 },
     spawn: { n: 8, colors: ['#fcfcfc', '#80d8fc', '#fcfc54'], speed: 0.9, life: 14 },
   };
@@ -321,8 +324,9 @@
       const a = Math.random() * Math.PI * 2;
       const sp = spec.speed * (0.35 + Math.random() * 0.65);
       particles.push({
-        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (spec.rise < 0 ? 0.4 : 0),
         life: spec.life + (Math.random() * 5 | 0), age: 0,
+        rise: spec.rise || 0, w: spec.w || 1,
         c: spec.colors[(Math.random() * spec.colors.length) | 0],
       });
     }
@@ -341,7 +345,10 @@
     if (b.dead) return;
     b.dead = true;
     b.owner.bullets--;
-    if (boom) effects.push({ x: b.x, y: b.y, size: 16, seq: [0, 1, 2], rate: 3, t: 0 });
+    if (boom) {
+      effects.push({ x: b.x, y: b.y, size: 16, seq: [0, 1, 2, 3], rate: 3, t: 0 });
+      burst(b.x, b.y, 'spark');
+    }
   }
 
   function impact(b) {
@@ -403,8 +410,10 @@
   }
 
   function bigBoom(t) {
-    effects.push({ x: t.x + 8, y: t.y + 8, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 4, t: 0 });
+    effects.push({ x: t.x + 8, y: t.y + 8, size: 32, seq: [0, 1, 2, 3, 4, 5], rate: 4, t: 0 });
     burst(t.x + 8, t.y + 8, 'boom');
+    burst(t.x + 8, t.y + 8, 'smoke');
+    burst(t.x + 8, t.y + 8, 'debris');
     addShake(t.player ? 12 : 8, t.player ? 2 : 1);
   }
 
@@ -442,8 +451,10 @@
 
   function destroyBase() {
     baseDead = true;
-    effects.push({ x: 104, y: 200, size: 32, seq: [0, 1, 2, 3, 2, 1], rate: 5, t: 0 });
+    effects.push({ x: 104, y: 200, size: 32, seq: [0, 1, 2, 3, 4, 5, 5], rate: 5, t: 0 });
     burst(104, 200, 'boom');
+    burst(104, 200, 'smoke');
+    burst(104, 200, 'debris');
     addShake(18, 3);
     Sfx.play('bigExplode');
     if (gameOverT < 0) gameOverT = 0;
@@ -572,7 +583,7 @@
 
     for (const e of effects) e.t++;
     effects = effects.filter(e => e.t < e.seq.length * e.rate);
-    for (const q of particles) { q.x += q.vx; q.y += q.vy; q.age++; }
+    for (const q of particles) { q.x += q.vx; q.y += q.vy; q.vy += q.rise || 0; q.age++; }
     if (particles.length) particles = particles.filter(q => q.age < q.life);
     for (const p of popups) p.t++;
     popups = popups.filter(p => p.t < p.delay + 45);
@@ -738,8 +749,12 @@
     blitCanvas(ctx, treesCv, FX, FY);
     if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) Sprites.drawBonus(ctx, FX + Math.round(bonus.x), FY + Math.round(bonus.y), bonus.type);
     for (const e of effects) {
-      const f = e.seq[Math.floor(e.t / e.rate)];
-      Sprites.drawExplosion(ctx, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2), e.size, e.size === 16 ? Math.min(2, f) : f);
+      const f = e.seq[Math.min(e.seq.length - 1, Math.floor(e.t / e.rate))];
+      Sprites.drawExplosion(ctx, Math.round(FX + e.x - e.size / 2), Math.round(FY + e.y - e.size / 2), e.size, f);
+    }
+    for (const q of particles) {
+      ctx.fillStyle = q.c;
+      ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), q.w || 1, q.w || 1);
     }
     for (const p of popups) {
       if (p.t < p.delay) continue;
