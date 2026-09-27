@@ -154,7 +154,7 @@
   let twoPlayer = false;
   let stage = 1;
   let players = [];
-  let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [], shockwaves = [];
+  let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [], shockwaves = [], flashes = [];
   let shakeT = 0, shakeMag = 0;
   let queue = [], enemySpawned = 0, spawnTimer = 0, spawnIdx = 0;
   let bonus = null;
@@ -186,7 +186,7 @@
 
   function startStage() {
     loadStage(stage);
-    tanks = []; bullets = []; effects = []; spawns = []; popups = []; particles = []; shockwaves = [];
+    tanks = []; bullets = []; effects = []; spawns = []; popups = []; particles = []; shockwaves = []; flashes = [];
     queue = Levels.enemies(stage);
     enemySpawned = 0; spawnTimer = 0; spawnIdx = 0;
     bonus = null; freezeT = 0; shovelT = 0;
@@ -316,6 +316,7 @@
     debris: { n: 8, colors: ['#2a2a2a', '#c86828', '#888888', '#6b6b00'], speed: 2.2, life: 48, w: 2, phys: true, gravity: 0.16, drag: 0.985, bounce: 0.48 },
     armor: { n: 6, colors: ['#fcf0a0', '#d89800', '#fcfcfc'], speed: 1.4, life: 12 },
     spawn: { n: 8, colors: ['#fcfcfc', '#80d8fc', '#fcfc54'], speed: 0.9, life: 14 },
+    muzzle: { n: 4, colors: ['#fcfcfc', '#ffe070', '#d0d0d0'], speed: 0.5, life: 9 },
   };
   function burst(x, y, kind) {
     const spec = PARTICLE_KINDS[kind];
@@ -474,6 +475,17 @@
     else speed = ENEMY[t.type].bullet;
     bullets.push({ x: t.x + 8 + DX[t.dir] * 6, y: t.y + 8 + DY[t.dir] * 6, dir: t.dir, speed, power, owner: t, dead: false });
     t.bullets++;
+    const big = t.player ? t.player.level >= 2 : t.type >= 2;
+    const mx = t.x + 8 + DX[t.dir] * (big ? 9 : 8);
+    const my = t.y + 8 + DY[t.dir] * (big ? 9 : 8);
+    flashes.push({ x: mx, y: my, dir: t.dir, big: big ? 1 : 0, t: 0 });
+    const from = particles.length;
+    burst(mx, my, 'muzzle');
+    for (let i = from; i < particles.length; i++) {
+      particles[i].vx += DX[t.dir] * 1.2;
+      particles[i].vy += DY[t.dir] * 1.2;
+    }
+    if (power) addShake(2, 1);
     if (t.player) Sfx.play('fire');
   }
 
@@ -719,6 +731,8 @@
 
     for (const b of bullets) for (let i = 0; i < b.speed && !b.dead; i++) bulletStep(b);
     bullets = bullets.filter(b => !b.dead);
+    for (const f of flashes) f.t++;
+    flashes = flashes.filter(f => f.t < 5);
 
     for (const e of effects) e.t++;
     effects = effects.filter(e => e.t < e.seq.length * e.rate);
@@ -885,6 +899,9 @@
     for (const b of bullets) {
       ctx.fillStyle = '#adadad'; ctx.fillRect(FX + b.x - 2, FY + b.y - 2, 4, 4);
       ctx.fillStyle = COL.white; ctx.fillRect(FX + b.x - 1, FY + b.y - 1, 2, 2);
+    }
+    for (const f of flashes) {
+      Sprites.drawMuzzle(ctx, FX + Math.round(f.x), FY + Math.round(f.y), f.dir, f.t, f.big);
     }
     blitCanvas(ctx, treesCv, FX, FY);
     if (bonus && ((bonus.t >> 3) & 1 || bonus.t < 8)) Sprites.drawBonus(ctx, FX + Math.round(bonus.x), FY + Math.round(bonus.y), bonus.type);
