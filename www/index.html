@@ -36,8 +36,14 @@
   <script src="js/game.js"></script>
   <script>
     // Offline support when served over http(s).
-    if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.Capacitor) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        location.reload();
+      });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
     }
   </script>
 </body>
