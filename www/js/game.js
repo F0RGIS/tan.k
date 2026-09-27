@@ -213,6 +213,7 @@
       p.tank = makeTank({ x, y, dir: 0, player: p, speed: PLAYER_SPEED, shield: 180 });
       tanks.push(p.tank);
       burst(x + 8, y + 8, 'spawn');
+      Sfx.play('spawn', 0.7);
     } });
   }
 
@@ -225,6 +226,7 @@
       const e = ENEMY[type];
       tanks.push(makeTank({ x, y, dir: 2, type, speed: e.speed, hp: e.hp, bonus: BONUS_INDEX.includes(idx), ai: 0 }));
       burst(x + 8, y + 8, 'spawn');
+      Sfx.play('spawn', 0.45);
     } });
   }
 
@@ -486,7 +488,7 @@
       particles[i].vy += DY[t.dir] * 1.2;
     }
     if (power) addShake(2, 1);
-    if (t.player) Sfx.play('fire');
+    Sfx.play(power || big ? 'fireBig' : 'fire', t.player ? 1 : 0.38);
   }
 
   function killBullet(b, boom) {
@@ -519,7 +521,7 @@
         else if (v === T_STEEL) { if (b.power) { setCell(mx, my, T_EMPTY); hitBrick = true; } else hitSteel = true; }
       }
     }
-    if (b.owner.player) Sfx.play(hitBrick ? 'brick' : hitSteel ? 'steel' : 'brick');
+    Sfx.play(hitBrick ? 'brick' : hitSteel ? 'steel' : 'brick', b.owner.player ? 1 : 0.35);
     if (hitBrick) burst(b.x, b.y, 'brick');
     else if (hitSteel) { burst(b.x, b.y, 'steel'); addShake(4, 1); }
   }
@@ -528,7 +530,8 @@
     b.x += DX[b.dir]; b.y += DY[b.dir];
     const x0 = b.x - 2, y0 = b.y - 2;
     if (x0 < 0 || y0 < 0 || x0 + 4 > FS || y0 + 4 > FS) {
-      if (b.owner.player) { Sfx.play('steel'); addShake(3, 1); }
+      Sfx.play('steel', b.owner.player ? 1 : 0.3);
+      if (b.owner.player) addShake(3, 1);
       killBullet(b, true); return;
     }
     let solid = false, base = false;
