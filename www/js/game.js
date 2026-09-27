@@ -154,7 +154,7 @@
   let twoPlayer = false;
   let stage = 1;
   let players = [];
-  let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [];
+  let tanks = [], bullets = [], effects = [], spawns = [], popups = [], particles = [], shockwaves = [];
   let shakeT = 0, shakeMag = 0;
   let queue = [], enemySpawned = 0, spawnTimer = 0, spawnIdx = 0;
   let bonus = null;
@@ -186,7 +186,7 @@
 
   function startStage() {
     loadStage(stage);
-    tanks = []; bullets = []; effects = []; spawns = []; popups = []; particles = [];
+    tanks = []; bullets = []; effects = []; spawns = []; popups = []; particles = []; shockwaves = [];
     queue = Levels.enemies(stage);
     enemySpawned = 0; spawnTimer = 0; spawnIdx = 0;
     bonus = null; freezeT = 0; shovelT = 0;
@@ -376,6 +376,55 @@
     if (q.vx * q.vx + q.vy * q.vy < 0.03) q.age++;
   }
 
+  function shockClear(nx, ny) {
+    if (nx < 0 || ny < 0 || nx > FS - 16 || ny > FS - 16) return false;
+    for (let my = ny >> 2; my <= (ny + 15) >> 2; my++) {
+      for (let mx = nx >> 2; mx <= (nx + 15) >> 2; mx++) {
+        const v = cell(mx, my);
+        if (v === T_BRICK || v === T_STEEL || v === T_WATER || v === T_BASE) return false;
+      }
+    }
+    return true;
+  }
+  function shockwave(x, y, power) {
+    if (shockwaves.length > 12) shockwaves.shift();
+    shockwaves.push({
+      x, y, r: 3,
+      max: power === 1 ? 20 : power === 2 ? 42 : 58,
+      power,
+    });
+  }
+  function stepShockwaves() {
+    for (const s of shockwaves) {
+      const prev = s.r;
+      s.r += s.power === 1 ? 1.7 : 2.5;
+      const inner = prev - 1.5, outer = s.r + 1.5;
+      const kick = (s.power === 1 ? 0.9 : s.power === 2 ? 1.8 : 2.6) * (1 - s.r / s.max);
+      for (const q of particles) {
+        if (!q.phys) continue;
+        const dx = q.x - s.x, dy = q.y - s.y;
+        const d = Math.hypot(dx, dy);
+        if (d < inner || d > outer || d < 0.01) continue;
+        q.vx += (dx / d) * kick;
+        q.vy += (dy / d) * kick * 0.65;
+      }
+      if (s.power < 2) continue;
+      for (const t of tanks) {
+        if (t.dead || (t.shield && s.power < 3)) continue;
+        const dx = t.x + 8 - s.x, dy = t.y + 8 - s.y;
+        const d = Math.hypot(dx, dy);
+        if (d < inner || d > outer || d < 0.01) continue;
+        const push = s.power === 3 ? 2.2 : 1.2;
+        const nx = t.x + (dx / d) * push, ny = t.y + (dy / d) * push;
+        if (!shockClear(nx, ny)) continue;
+        if (tanks.some(o => o !== t && !o.dead && overlap(nx, ny, 16, 16, o.x, o.y, 16, 16))) continue;
+        t.x = nx;
+        t.y = ny;
+      }
+    }
+    shockwaves = shockwaves.filter(s => s.r < s.max);
+  }
+
   function fire(t) {
     let speed, power = false;
     if (t.player) { const l = t.player.level; speed = l >= 1 ? 5 : 3; power = l >= 3; }
@@ -392,6 +441,7 @@
     if (boom) {
       effects.push({ x: b.x, y: b.y, size: 16, seq: [0, 1, 2, 3], rate: 3, t: 0 });
       burst(b.x, b.y, 'spark');
+      shockwave(b.x, b.y, 1);
     }
   }
 
@@ -458,6 +508,7 @@
     burst(t.x + 8, t.y + 8, 'boom');
     burst(t.x + 8, t.y + 8, 'smoke');
     burst(t.x + 8, t.y + 8, 'debris');
+    shockwave(t.x + 8, t.y + 8, 2);
     addShake(t.player ? 12 : 8, t.player ? 2 : 1);
   }
 
@@ -499,6 +550,7 @@
     burst(104, 200, 'boom');
     burst(104, 200, 'smoke');
     burst(104, 200, 'debris');
+    shockwave(104, 200, 3);
     addShake(18, 3);
     Sfx.play('bigExplode');
     if (gameOverT < 0) gameOverT = 0;
@@ -627,6 +679,7 @@
 
     for (const e of effects) e.t++;
     effects = effects.filter(e => e.t < e.seq.length * e.rate);
+    stepShockwaves();
     for (const q of particles) stepParticle(q);
     if (particles.length) particles = particles.filter(q => q.age < q.life);
     for (const p of popups) p.t++;
@@ -802,6 +855,7 @@
       if (q.phys) { const tumble = (q.rot | 0) & 4; w = tumble ? 1 : q.w; h = tumble ? q.w : 1; }
       ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), w, h);
     }
+    for (const s of shockwaves) Sprites.drawShockwave(ctx, FX + Math.round(s.x), FY + Math.round(s.y), s.r, s.max);
     for (const p of popups) {
       if (p.t < p.delay) continue;
       const w = Font.width(p.text) / 2;
