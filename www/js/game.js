@@ -313,7 +313,7 @@
     spark: { n: 6, colors: ['#fcfcfc', '#ffe070', '#fc9820', '#e02010'], speed: 1.5, life: 12 },
     boom:  { n: 14, colors: ['#fcfcfc', '#ffe070', '#fc9820', '#e02010'], speed: 2.1, life: 18 },
     smoke: { n: 8, colors: ['#f0f0f0', '#b0b0b0', '#686868'], speed: 0.35, life: 32, rise: -0.06, w: 2 },
-    debris: { n: 8, colors: ['#2a2a2a', '#c86828', '#888888', '#6b6b00'], speed: 1.6, life: 18, rise: 0.07, w: 2 },
+    debris: { n: 8, colors: ['#2a2a2a', '#c86828', '#888888', '#6b6b00'], speed: 2.2, life: 48, w: 2, phys: true, gravity: 0.16, drag: 0.985, bounce: 0.48 },
     armor: { n: 6, colors: ['#fcf0a0', '#d89800', '#fcfcfc'], speed: 1.4, life: 12 },
     spawn: { n: 8, colors: ['#fcfcfc', '#80d8fc', '#fcfc54'], speed: 0.9, life: 14 },
   };
@@ -324,12 +324,56 @@
       const a = Math.random() * Math.PI * 2;
       const sp = spec.speed * (0.35 + Math.random() * 0.65);
       particles.push({
-        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (spec.rise < 0 ? 0.4 : 0),
-        life: spec.life + (Math.random() * 5 | 0), age: 0,
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (spec.phys ? 1.3 : spec.rise < 0 ? 0.4 : 0),
+        life: spec.life + (Math.random() * 6 | 0), age: 0,
         rise: spec.rise || 0, w: spec.w || 1,
+        phys: !!spec.phys, gravity: spec.gravity || 0, drag: spec.drag || 1, bounce: spec.bounce || 0,
+        rot: Math.random() * 8,
         c: spec.colors[(Math.random() * spec.colors.length) | 0],
       });
     }
+  }
+
+  function debrisBlocked(px, py) {
+    const v = cell(px >> 2, py >> 2);
+    return v === T_BRICK || v === T_STEEL || v === T_BASE;
+  }
+  function stepParticle(q) {
+    q.age++;
+    if (!q.phys) {
+      q.x += q.vx;
+      q.y += q.vy;
+      q.vy += q.rise || 0;
+      return;
+    }
+    q.vy += q.gravity;
+    q.vx *= q.drag;
+    const m = (q.w || 2) - 1;
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(q.vx), Math.abs(q.vy)) / 2));
+    const dx = q.vx / steps, dy = q.vy / steps;
+    for (let i = 0; i < steps; i++) {
+      let nx = q.x + dx, ny = q.y + dy, bounced = false;
+      if (nx < 0) { nx = 0; q.vx = Math.abs(q.vx) * q.bounce; bounced = true; }
+      else if (nx > FS - 1 - m) { nx = FS - 1 - m; q.vx = -Math.abs(q.vx) * q.bounce; bounced = true; }
+      if (ny < 0) { ny = 0; q.vy = Math.abs(q.vy) * q.bounce; bounced = true; }
+      else if (ny > FS - 1 - m) { ny = FS - 1 - m; q.vy = -Math.abs(q.vy) * q.bounce; q.vx *= 0.82; bounced = true; }
+      if (!bounced) {
+        const hitX = debrisBlocked(nx + (m >> 1), q.y + (m >> 1));
+        const hitY = debrisBlocked(q.x + (m >> 1), ny + (m >> 1));
+        if (hitX || hitY) {
+          if (hitX) q.vx = -q.vx * q.bounce;
+          if (hitY) { q.vy = -q.vy * q.bounce; q.vx *= 0.82; }
+          bounced = true;
+          nx = q.x;
+          ny = q.y;
+        }
+      }
+      q.x = nx;
+      q.y = ny;
+      if (bounced) break;
+    }
+    q.rot += Math.abs(q.vx) + Math.abs(q.vy);
+    if (q.vx * q.vx + q.vy * q.vy < 0.03) q.age++;
   }
 
   function fire(t) {
@@ -583,7 +627,7 @@
 
     for (const e of effects) e.t++;
     effects = effects.filter(e => e.t < e.seq.length * e.rate);
-    for (const q of particles) { q.x += q.vx; q.y += q.vy; q.vy += q.rise || 0; q.age++; }
+    for (const q of particles) stepParticle(q);
     if (particles.length) particles = particles.filter(q => q.age < q.life);
     for (const p of popups) p.t++;
     popups = popups.filter(p => p.t < p.delay + 45);
@@ -754,7 +798,9 @@
     }
     for (const q of particles) {
       ctx.fillStyle = q.c;
-      ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), q.w || 1, q.w || 1);
+      let w = q.w || 1, h = w;
+      if (q.phys) { const tumble = (q.rot | 0) & 4; w = tumble ? 1 : q.w; h = tumble ? q.w : 1; }
+      ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), w, h);
     }
     for (const p of popups) {
       if (p.t < p.delay) continue;
