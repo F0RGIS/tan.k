@@ -411,16 +411,28 @@
       const prev = s.r;
       s.r += s.power === 1 ? 1.8 : 2.6;
       const pressure = s.p0 * (8 / Math.max(8, s.r)) * (1 - s.r / s.max);
-      const inner = Math.max(0, prev - 2), outer = s.r + 2;
+      // High pressure packs the front into a thinner shell.
+      s.pack = pressure / s.p0;
+      s.shell = Math.max(2, 5.5 - s.pack * 3.5);
+      const inner = Math.max(0, prev - 1), outer = s.r + 1;
+      const pullOuter = s.r - s.shell;
+      const pullInner = Math.max(0, pullOuter - s.shell * 2.2);
+      const suction = pressure * 0.42;
       for (const q of particles) {
-        if (!q.phys) continue;
+        const air = q.phys ? 1 : (q.w >= 2 ? 0.45 : 0);
+        if (!air) continue;
         const dx = q.x - s.x, dy = q.y - s.y;
         const d = Math.hypot(dx, dy);
-        if (d < inner || d > outer || d < 1) continue;
+        if (d < 1) continue;
         if (shockOccluded(s.x, s.y, q.x, q.y)) continue;
         const inv = 1 / d;
-        q.vx += dx * inv * pressure;
-        q.vy += dy * inv * pressure * 0.8 - pressure * 0.12;
+        if (d >= inner && d <= outer) {
+          q.vx += dx * inv * pressure * air;
+          q.vy += dy * inv * pressure * 0.8 * air - pressure * 0.1 * air;
+        } else if (d >= pullInner && d <= pullOuter) {
+          q.vx -= dx * inv * suction * air;
+          q.vy -= dy * inv * suction * air;
+        }
       }
       // The front reflects off brick, steel, and the eagle.
       const rays = 16;
@@ -887,13 +899,13 @@
       ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), w, h);
     }
     for (const s of shockwaves) {
-      const n = Math.max(10, s.r * 1.4 | 0);
+      const n = Math.max(12, s.r * 1.6 | 0);
       const open = new Array(n);
       for (let i = 0; i < n; i++) {
         const a = i / n * Math.PI * 2;
         open[i] = shockOccluded(s.x, s.y, s.x + Math.cos(a) * s.r, s.y + Math.sin(a) * s.r) ? 0 : 1;
       }
-      Sprites.drawShockwave(ctx, FX + Math.round(s.x), FY + Math.round(s.y), s.r, s.max, open);
+      Sprites.drawShockwave(ctx, FX + Math.round(s.x), FY + Math.round(s.y), s.r, s.max, open, s.pack || 0);
     }
     for (const p of popups) {
       if (p.t < p.delay) continue;
