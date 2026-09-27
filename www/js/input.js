@@ -148,7 +148,7 @@ const Input = (() => {
       if (b(9) && !st.btn[9]) { edges.add('pause'); edges.add('start'); }
       if (b(8) && !st.btn[8]) edges.add('back');
       st.btn[9] = b(9); st.btn[8] = b(8);
-      if (d >= 0 || fire) { lastSource = 'gamepad'; showTouch(false); }
+      if (d >= 0 || fire) { Sfx.init(); lastSource = 'gamepad'; showTouch(false); }
     }
     for (; n < 2; n++) { padState[n].dir = -1; padState[n].fire = false; }
   }
