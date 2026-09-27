@@ -452,6 +452,39 @@ const Sprites = (() => {
     ctx.fillRect(x + 7, y + 7, 2, 2);
   }
 
+  // Muzzle blast at the bore. frame 0 is the white core and Mach disk,
+  // then the flame tongue, then leftover smoke.
+  function drawMuzzle(ctx, x, y, dir, frame, big) {
+    const dx = [0, 1, 0, -1][dir] || 0;
+    const dy = [-1, 0, 1, 0][dir] || 0;
+    const horiz = dir & 1;
+    if (frame >= 3) {
+      ctx.fillStyle = frame === 3 ? '#d8d8d8' : '#787878';
+      const ox = x + dx * 2, oy = y + dy * 2;
+      ctx.fillRect(ox - 1, oy - 1, 3, 2);
+      ctx.fillRect(ox + dx * 2, oy + dy * 2, 2, 2);
+      return;
+    }
+    const reach = Math.max(2, (big ? 9 : 6) - frame * 2);
+    for (let i = 0; i < reach; i++) {
+      const hot = frame === 0 && i < 2;
+      const w = hot ? 2 : i < reach - 2 ? 1 : 0;
+      ctx.fillStyle = hot ? '#fcfcfc' : frame === 0 ? '#ffe070' : frame === 1 ? '#fc9820' : '#c86828';
+      const cx = x + dx * i, cy = y + dy * i;
+      if (horiz) ctx.fillRect(cx, cy - w, 1, w * 2 + 1);
+      else ctx.fillRect(cx - w, cy, w * 2 + 1, 1);
+    }
+    if (frame === 0) {
+      const mx = x + dx * (big ? 4 : 3), my = y + dy * (big ? 4 : 3);
+      const span = big ? 7 : 5;
+      ctx.fillStyle = '#fcfcfc';
+      if (horiz) ctx.fillRect(mx, my - (span >> 1), 1, span);
+      else ctx.fillRect(mx - (span >> 1), my, span, 1);
+      ctx.fillStyle = '#fff6c0';
+      ctx.fillRect(x - 1, y - 1, 3, 3);
+    }
+  }
+
   function drawShield(ctx, x, y, frame) {
     ctx.fillStyle = frame & 1 ? '#fcfcfc' : '#80e0fc';
     for (let a = 0; a < 16; a++) {
@@ -474,7 +507,7 @@ const Sprites = (() => {
   }
 
   return {
-    drawTank, drawExplosion, drawShockwave, drawSpawn, drawShield,
+    drawTank, drawExplosion, drawShockwave, drawMuzzle, drawSpawn, drawShield,
     drawEagle: (ctx, x, y) => drawMap(ctx, x, y, EAGLE),
     drawFlag: (ctx, x, y) => drawMap(ctx, x, y, FLAG),
     drawBonus: (ctx, x, y, type) => drawMap(ctx, x, y, BONUS[type] || BONUS.star),
