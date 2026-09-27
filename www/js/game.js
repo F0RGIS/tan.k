@@ -386,35 +386,66 @@
     }
     return true;
   }
+  function shockOccluded(x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(dist / 4));
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const v = cell((x0 + dx * t) >> 2, (y0 + dy * t) >> 2);
+      if (v === T_BRICK || v === T_STEEL || v === T_BASE) return true;
+    }
+    return false;
+  }
   function shockwave(x, y, power) {
     if (shockwaves.length > 12) shockwaves.shift();
     shockwaves.push({
-      x, y, r: 3,
-      max: power === 1 ? 20 : power === 2 ? 42 : 58,
+      x, y, r: 4,
+      max: power === 1 ? 22 : power === 2 ? 46 : 62,
+      p0: power === 1 ? 1.15 : power === 2 ? 2.5 : 3.4,
       power,
     });
   }
   function stepShockwaves() {
     for (const s of shockwaves) {
       const prev = s.r;
-      s.r += s.power === 1 ? 1.7 : 2.5;
-      const inner = prev - 1.5, outer = s.r + 1.5;
-      const kick = (s.power === 1 ? 0.9 : s.power === 2 ? 1.8 : 2.6) * (1 - s.r / s.max);
+      s.r += s.power === 1 ? 1.8 : 2.6;
+      const pressure = s.p0 * (8 / Math.max(8, s.r)) * (1 - s.r / s.max);
+      const inner = Math.max(0, prev - 2), outer = s.r + 2;
       for (const q of particles) {
         if (!q.phys) continue;
         const dx = q.x - s.x, dy = q.y - s.y;
         const d = Math.hypot(dx, dy);
-        if (d < inner || d > outer || d < 0.01) continue;
-        q.vx += (dx / d) * kick;
-        q.vy += (dy / d) * kick * 0.65;
+        if (d < inner || d > outer || d < 1) continue;
+        if (shockOccluded(s.x, s.y, q.x, q.y)) continue;
+        const inv = 1 / d;
+        q.vx += dx * inv * pressure;
+        q.vy += dy * inv * pressure * 0.8 - pressure * 0.12;
+      }
+      // The front reflects off brick, steel, and the eagle.
+      const rays = 16;
+      for (let i = 0; i < rays; i++) {
+        const a = i / rays * Math.PI * 2;
+        const px = s.x + Math.cos(a) * s.r, py = s.y + Math.sin(a) * s.r;
+        const v = cell(px >> 2, py >> 2);
+        if (v !== T_BRICK && v !== T_STEEL && v !== T_BASE) continue;
+        const rx = Math.cos(a), ry = Math.sin(a);
+        for (const q of particles) {
+          if (!q.phys) continue;
+          if (Math.hypot(q.x - px, q.y - py) > 5) continue;
+          q.vx -= rx * pressure * 1.1;
+          q.vy -= ry * pressure * 1.1;
+        }
       }
       if (s.power < 2) continue;
       for (const t of tanks) {
         if (t.dead || (t.shield && s.power < 3)) continue;
-        const dx = t.x + 8 - s.x, dy = t.y + 8 - s.y;
+        const cx = t.x + 8, cy = t.y + 8;
+        const dx = cx - s.x, dy = cy - s.y;
         const d = Math.hypot(dx, dy);
-        if (d < inner || d > outer || d < 0.01) continue;
-        const push = s.power === 3 ? 2.2 : 1.2;
+        if (d < inner || d > outer || d < 1) continue;
+        if (shockOccluded(s.x, s.y, cx, cy)) continue;
+        const push = pressure * (s.power === 3 ? 1.15 : 0.7);
         const nx = t.x + (dx / d) * push, ny = t.y + (dy / d) * push;
         if (!shockClear(nx, ny)) continue;
         if (tanks.some(o => o !== t && !o.dead && overlap(nx, ny, 16, 16, o.x, o.y, 16, 16))) continue;
@@ -855,7 +886,15 @@
       if (q.phys) { const tumble = (q.rot | 0) & 4; w = tumble ? 1 : q.w; h = tumble ? q.w : 1; }
       ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), w, h);
     }
-    for (const s of shockwaves) Sprites.drawShockwave(ctx, FX + Math.round(s.x), FY + Math.round(s.y), s.r, s.max);
+    for (const s of shockwaves) {
+      const n = Math.max(10, s.r * 1.4 | 0);
+      const open = new Array(n);
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2;
+        open[i] = shockOccluded(s.x, s.y, s.x + Math.cos(a) * s.r, s.y + Math.sin(a) * s.r) ? 0 : 1;
+      }
+      Sprites.drawShockwave(ctx, FX + Math.round(s.x), FY + Math.round(s.y), s.r, s.max, open);
+    }
     for (const p of popups) {
       if (p.t < p.delay) continue;
       const w = Font.width(p.text) / 2;
