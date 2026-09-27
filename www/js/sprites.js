@@ -403,13 +403,24 @@ const Sprites = (() => {
     const core = f === 0 ? (big ? 6 : 3) : 2;
     ctx.fillStyle = '#fcfcfc';
     ctx.fillRect(cx - (core >> 1), cy - (core >> 1), core, core);
-    if (big && f >= 2) {
-      ctx.fillStyle = f === 2 ? '#ffe070' : '#fcfcfc';
-      const ring = 8 + f * 4;
-      for (let a = 0; a < 20; a++) {
-        if ((a + f) % 2) continue;
-        const t = a / 20 * Math.PI * 2;
-        ctx.fillRect(cx + Math.round(Math.cos(t) * ring), cy + Math.round(Math.sin(t) * ring), 1, 1);
+  }
+
+  function drawShockwave(ctx, x, y, r, max) {
+    const fade = 1 - r / max;
+    const n = Math.max(10, r * 1.4 | 0);
+    ctx.fillStyle = fade > 0.55 ? '#fcfcfc' : fade > 0.25 ? '#ffe070' : '#e02010';
+    for (let i = 0; i < n; i++) {
+      if ((i + (r | 0)) & 1) continue;
+      const a = i / n * Math.PI * 2;
+      ctx.fillRect(x + Math.round(Math.cos(a) * r), y + Math.round(Math.sin(a) * r), 1, 1);
+    }
+    const inner = r - (max > 24 ? 4 : 2);
+    if (inner > 3) {
+      ctx.fillStyle = fade > 0.4 ? '#fc9820' : '#681010';
+      const n2 = Math.max(8, n - 6);
+      for (let i = 0; i < n2; i++) {
+        const a = (i + 0.5) / n2 * Math.PI * 2;
+        ctx.fillRect(x + Math.round(Math.cos(a) * inner), y + Math.round(Math.sin(a) * inner), 1, 1);
       }
     }
   }
@@ -452,7 +463,7 @@ const Sprites = (() => {
   }
 
   return {
-    drawTank, drawExplosion, drawSpawn, drawShield,
+    drawTank, drawExplosion, drawShockwave, drawSpawn, drawShield,
     drawEagle: (ctx, x, y) => drawMap(ctx, x, y, EAGLE),
     drawFlag: (ctx, x, y) => drawMap(ctx, x, y, FLAG),
     drawBonus: (ctx, x, y, type) => drawMap(ctx, x, y, BONUS[type] || BONUS.star),
