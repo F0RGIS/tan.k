@@ -406,7 +406,7 @@ const Sprites = (() => {
   }
 
   function drawShockwave(ctx, x, y, r, max, open, pack) {
-    const n = Math.max(12, r * 1.6 | 0);
+    const n = Math.max(12, (((pack || 0) > 0.45 ? r * 6.2 : r * 1.6) | 0));
     const tight = (pack || 0) > 0.45;
     ctx.fillStyle = tight ? '#fcfcfc' : '#ffe070';
     for (let i = 0; i < n; i++) {
