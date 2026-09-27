@@ -29,7 +29,7 @@ const { chromium } = require('playwright');
   fs.writeFileSync(path.join(dir, 'icon-192.png'), Buffer.from(out.a, 'base64'));
   fs.writeFileSync(path.join(dir, 'icon-512.png'), Buffer.from(out.b, 'base64'));
   fs.writeFileSync(path.join(dir, 'icon-maskable-512.png'), Buffer.from(out.c, 'base64'));
-  // Source icon for Windows (electron-builder) and Android (@capacitor/assets).
+  // Source icon for the Windows build (electron-builder).
   const assets = path.join(__dirname, '..', 'assets');
   fs.mkdirSync(assets, { recursive: true });
   fs.writeFileSync(path.join(assets, 'icon-only.png'), Buffer.from(out.d, 'base64'));

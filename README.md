@@ -2,8 +2,7 @@
 
 A remake of the classic 1985 NES tank game. Defend your eagle, destroy the
 20 enemy tanks in each stage and collect power-ups. It runs on **Windows**
-and **Android** (as native apps or an installable web app), and in any
-modern browser.
+as a native app or an installable web app, and in any modern browser.
 
 Pure HTML5 canvas + JavaScript. There are no runtime dependencies and no
 image or sound files: sprites, font and sound effects are all generated in
@@ -37,8 +36,7 @@ code.
   starting stage on the stage screen.
 - 1 or 2 players (same keyboard, or gamepads)
 - Score tally screen, extra life every 20,000 points, saved hi-score
-- Keyboard, gamepad (XInput / Android controllers) and on-screen touch
-  controls
+- Keyboard, gamepad and on-screen touch controls
 
 ## Controls
 
@@ -58,7 +56,7 @@ npm start            # serves www/ on http://localhost:8080
 
 Any static web server works, because the game is just the `www/` folder.
 When it's served over HTTPS, Chrome and Edge offer to **install** it as an
-app (PWA), which also works offline, on both Windows and Android.
+app (PWA), which also works offline.
 
 ## Build for Windows (.exe)
 
@@ -70,24 +68,11 @@ npm run build:win    # -> dist/TAN.K Setup x.y.z.exe and TAN.K-x.y.z-portable.ex
 
 Run `build:win` on Windows. Building on Linux or macOS needs Wine.
 
-## Build for Android (.apk)
-
-Requires JDK 21 and the Android SDK (Android Studio installs both).
-
-```bash
-npm install
-npm run android:init   # one-time: creates android/ and launcher icons
-npm run build:android  # -> android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-You can also open the `android/` folder in Android Studio to run it on a
-device or build a signed release.
-
 ## CI builds
 
-`.github/workflows/build.yml` builds the Windows `.exe` files and the
-Android `.apk`. To run it, go to **Actions → Build apps → Run workflow**,
-or push a tag such as `v1.0.0`. The files appear as workflow artifacts.
+`.github/workflows/build.yml` builds the Windows `.exe` files. To run it,
+go to **Actions → Build Windows → Run workflow**, or push a tag such as
+`v1.0.0`. The files appear as workflow artifacts.
 
 ## Project layout
 
@@ -102,7 +87,6 @@ www/                 the game (the only thing shipped)
   js/font.js         5x7 bitmap font
   sw.js, manifest.webmanifest   offline / installable web app
 electron/main.js     Windows desktop wrapper
-capacitor.config.json  Android wrapper config
 tools/make-icons.js  regenerates the app icons (needs Playwright)
 ```
 
