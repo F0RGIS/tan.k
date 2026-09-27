@@ -899,7 +899,7 @@
       ctx.fillRect(FX + Math.round(q.x), FY + Math.round(q.y), w, h);
     }
     for (const s of shockwaves) {
-      const n = Math.max(12, s.r * 1.6 | 0);
+      const n = Math.max(12, (((s.pack || 0) > 0.45 ? s.r * 6.2 : s.r * 1.6) | 0));
       const open = new Array(n);
       for (let i = 0; i < n; i++) {
         const a = i / n * Math.PI * 2;
